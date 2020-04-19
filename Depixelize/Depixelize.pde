@@ -11,7 +11,8 @@ final int PROCESSING_SCALE_STATE = 1;
 final int INITIAL_DEPIXELIZE_STATE = 2;
 final int FULLY_CONNECTED_STATE = 3;
 final int CUT_OFF_DISSIMILAR = 4;
-final int NUM_DRAW_STATES = 5;
+final int COLOR_CODE_CROSSINGS = 5;
+final int NUM_DRAW_STATES = 6;
 
 // Dissimilarity RGB Constants
 final int DIFFERENCE_Y = 48;
@@ -55,6 +56,10 @@ void draw() {
                 cutOffDissimilar = false;
             }
             drawGraph();
+            break;
+        case COLOR_CODE_CROSSINGS:
+            drawImagePixelsTransparent();
+            drawGraphColorCodedCrossings();
             break;
 	}
 }
@@ -342,6 +347,112 @@ void drawGraph() {
                         point(((x+1)*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2));
                         point((x*lineWidth)+(lineWidth/2),((y+1)*lineHeight)+(lineHeight/2));
                         strokeWeight(3);
+                    }
+                }
+            }
+		}
+	}
+}
+
+void drawGraphColorCodedCrossings() {
+    stroke(0,0,0);
+    strokeWeight(3);
+    float lineWidth = width/(imagePixels.length * 1.0);
+	float lineHeight = height/(imagePixels[0].length * 1.0);
+    for (int y = 0; y < imagePixels[0].length; y++) {
+		for (int x = 0; x < imagePixels.length; x++) {
+            if(!(x == imagePixels.length-1 && y == imagePixels[0].length-1)) {
+                if (x == imagePixels.length-1) {  // Last Column: |
+                    if(similarityGraph.isEdge(x+y+(y*(imagePixels.length-1)), (x+(y+1)+((y+1)*(imagePixels.length-1))))) {
+                        line((x*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2),(x*lineWidth)+(lineWidth/2),((y+1)*lineHeight)+(lineHeight/2));
+                        strokeWeight(10);
+                        point((x*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2));
+                        point((x*lineWidth)+(lineWidth/2),((y+1)*lineHeight)+(lineHeight/2));
+                        strokeWeight(3);
+                    }
+                } else if (y == imagePixels[0].length-1) {  // Last Row: -
+                    if(similarityGraph.isEdge(x+y+(y*(imagePixels.length-1)), ((x+1)+y+(y*(imagePixels.length-1))))) {
+                        line((x*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2),((x+1)*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2));
+                        strokeWeight(10);
+                        point((x*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2));
+                        point(((x+1)*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2));
+                        strokeWeight(3);
+                    }
+                }else {
+                    if(similarityGraph.isEdge(x+y+(y*(imagePixels.length-1)), ((x+1)+y+(y*(imagePixels.length-1))))) { // -
+                        line((x*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2),((x+1)*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2));
+                        strokeWeight(10);
+                        point((x*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2));
+                        point(((x+1)*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2));
+                        strokeWeight(3);
+                    }
+                    if(similarityGraph.isEdge(x+y+(y*(imagePixels.length-1)), (x+(y+1)+((y+1)*(imagePixels.length-1))))) { // |
+                        line((x*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2),(x*lineWidth)+(lineWidth/2),((y+1)*lineHeight)+(lineHeight/2));
+                        strokeWeight(10);
+                        point((x*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2));
+                        point((x*lineWidth)+(lineWidth/2),((y+1)*lineHeight)+(lineHeight/2));
+                        strokeWeight(3);
+                    }
+                    if ((similarityGraph.isEdge(x+y+(y*(imagePixels.length-1)), ((x+1)+(y+1)+((y+1)*(imagePixels.length-1))))) && (similarityGraph.isEdge((x+1)+y+(y*(imagePixels.length-1)), (x+(y+1)+((y+1)*(imagePixels.length-1)))))) { // Crossing
+                        boolean differentColors = false;
+
+                        float R1 = red(imagePixels[x][y]);
+                        float G1 = green(imagePixels[x][y]);
+                        float B1 = blue(imagePixels[x][y]);
+
+                        float Y1 = YfromRGB(R1, G1, B1);
+                        float U1 = UfromRGB(R1, G1, B1);
+                        float V1 = VfromRGB(R1, G1, B1);
+
+                        float R2 = red(imagePixels[x][y+1]);
+                        float G2 = green(imagePixels[x][y+1]);
+                        float B2 = blue(imagePixels[x][y+1]);
+
+                        float Y2 = YfromRGB(R2, G2, B2);
+                        float U2 = UfromRGB(R2, G2, B2);
+                        float V2 = VfromRGB(R2, G2, B2);
+
+                        float differenceY = abs(Y1 - Y2);
+                        float differenceU = abs(U1 - U2);
+                        float differenceV = abs(V1 - V2);
+
+                        if (differenceY > DIFFERENCE_Y || differenceU > DIFFERENCE_U || differenceV > DIFFERENCE_V) {
+                            differentColors = true;
+                        }
+
+                        if (differentColors) {
+                            stroke(255,0,0); // Red
+                        } else {
+                            stroke(0,0,255); // Blue
+                        }
+                        
+                        // Draw Lines (Crossing)
+                        line((x*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2),((x+1)*lineWidth)+(lineWidth/2),((y+1)*lineHeight)+(lineHeight/2));
+                        line(((x+1)*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2),(x*lineWidth)+(lineWidth/2),((y+1)*lineHeight)+(lineHeight/2));
+                        
+                        // (Edge) Points
+                        strokeWeight(10);
+                        point(((x+1)*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2));
+                        point((x*lineWidth)+(lineWidth/2),((y+1)*lineHeight)+(lineHeight/2));
+                        strokeWeight(3);
+                        
+                        stroke(0,0,0);
+                    } 
+                    else { // Single Diagonal
+                        if(similarityGraph.isEdge(x+y+(y*(imagePixels.length-1)), ((x+1)+(y+1)+((y+1)*(imagePixels.length-1))))) { // \
+                            line((x*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2),((x+1)*lineWidth)+(lineWidth/2),((y+1)*lineHeight)+(lineHeight/2));
+                            strokeWeight(10);
+                            point((x*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2));
+                            point(((x+1)*lineWidth)+(lineWidth/2),((y+1)*lineHeight)+(lineHeight/2));
+                            strokeWeight(3);
+                        }
+                        if(similarityGraph.isEdge((x+1)+y+(y*(imagePixels.length-1)), (x+(y+1)+((y+1)*(imagePixels.length-1))))) { // /
+                            line(((x+1)*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2),(x*lineWidth)+(lineWidth/2),((y+1)*lineHeight)+(lineHeight/2));
+                            strokeWeight(10);
+                            point(((x+1)*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2));
+                            point((x*lineWidth)+(lineWidth/2),((y+1)*lineHeight)+(lineHeight/2));
+                            strokeWeight(3);
+                        }
                     }
                 }
             }
