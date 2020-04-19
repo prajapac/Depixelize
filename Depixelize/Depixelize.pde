@@ -3,14 +3,20 @@ Graph similarityGraph;
 color[][] imagePixels;
 int currState = 0;
 boolean generateGraph = false;
+boolean cutOffDissimilar = false;
 
 // Draw_State for application
 final int ORIGINAL_SCALE_STATE = 0;
 final int PROCESSING_SCALE_STATE = 1;
 final int INITIAL_DEPIXELIZE_STATE = 2;
 final int FULLY_CONNECTED_STATE = 3;
-final int CUT_OFF_DISIMILAR = 4;
+final int CUT_OFF_DISSIMILAR = 4;
 final int NUM_DRAW_STATES = 5;
+
+// Dissimilarity RGB Constants
+final int DIFFERENCE_Y = 48;
+final int DIFFERENCE_U = 7;
+final int DIFFERENCE_V = 6;
 
 void setup() {
 	size(1024, 1024);
@@ -39,6 +45,14 @@ void draw() {
             if (generateGraph) {
                 generateGraph();
                 generateGraph = false;
+            }
+            drawGraph();
+            break;
+        case CUT_OFF_DISSIMILAR:
+            drawImagePixelsTransparent();
+            if (cutOffDissimilar) {
+                cutOffDissimilar();
+                cutOffDissimilar = false;
             }
             drawGraph();
             break;
@@ -71,8 +85,8 @@ void drawImagePixels() {
     noStroke();
 	float rectWidth = width/(imagePixels.length * 1.0);
 	float rectHeight = height/(imagePixels[0].length * 1.0);
-	for (int x = 0; x < imagePixels.length; x++) {
-		for (int y = 0; y < imagePixels[0].length; y++) {
+	for (int y = 0; y < imagePixels[0].length; y++) {
+		for (int x = 0; x < imagePixels.length; x++) {
 			fill(imagePixels[x][y]);
 			rect(x*rectWidth,y*rectHeight,rectWidth,rectHeight);
 		}	
@@ -84,8 +98,8 @@ void drawImagePixelsTransparent() {
     noStroke();
 	float rectWidth = width/(imagePixels.length * 1.0);
 	float rectHeight = height/(imagePixels[0].length * 1.0);
-	for (int x = 0; x < imagePixels.length; x++) {
-		for (int y = 0; y < imagePixels[0].length; y++) {
+	for (int y = 0; y < imagePixels[0].length; y++) {
+		for (int x = 0; x < imagePixels.length; x++) {
 			fill(red(imagePixels[x][y]), green(imagePixels[x][y]), blue(imagePixels[x][y]), alpha);
 			rect(x*rectWidth,y*rectHeight,rectWidth,rectHeight);
 		}	
@@ -95,18 +109,181 @@ void drawImagePixelsTransparent() {
 void generateGraph() {
     similarityGraph = new Graph(((imagePixels.length)*(imagePixels[0].length)));
 
-    for (int x = 0; x < imagePixels.length; x++) {
-		for (int y = 0; y < imagePixels[0].length; y++) {
+    for (int y = 0; y < imagePixels[0].length; y++) {
+		for (int x = 0; x < imagePixels.length; x++) {
             if(!(x == imagePixels.length-1 && y == imagePixels[0].length-1)) {
-                if (x == imagePixels.length-1) {
-                similarityGraph.addEdge(x+y, x+y+imagePixels.length); // |
-                } else if (y == imagePixels[0].length-1) {
-                    similarityGraph.addEdge(x+y, x+y+1); // -
+                if (x == imagePixels.length-1) { // Last Column: |
+                    similarityGraph.addEdge(x+y+(y*(imagePixels.length-1)), (x+(y+1)+((y+1)*(imagePixels.length-1))));
+                } else if (y == imagePixels[0].length-1) { // Last Row: -
+                    similarityGraph.addEdge(x+y+(y*(imagePixels.length-1)), ((x+1)+y+(y*(imagePixels.length-1))));
                 } else {
-                    similarityGraph.addEdge(x+y, x+y+1); // -
-                    similarityGraph.addEdge(x+y, x+y+imagePixels.length); // |
-                    similarityGraph.addEdge(x+y, x+y+imagePixels.length+1); // \
-                    similarityGraph.addEdge(x+y+1, x+y+imagePixels.length); // /
+                    similarityGraph.addEdge(x+y+(y*(imagePixels.length-1)), ((x+1)+y+(y*(imagePixels.length-1)))); // -
+                    similarityGraph.addEdge(x+y+(y*(imagePixels.length-1)), (x+(y+1)+((y+1)*(imagePixels.length-1)))); // |
+                    similarityGraph.addEdge(x+y+(y*(imagePixels.length-1)), ((x+1)+(y+1)+((y+1)*(imagePixels.length-1)))); // \
+                    similarityGraph.addEdge((x+1)+y+(y*(imagePixels.length-1)), (x+(y+1)+((y+1)*(imagePixels.length-1)))); // /
+                }
+            }
+		}
+	}
+}
+
+void cutOffDissimilar() {
+    for (int y = 0; y < imagePixels[0].length; y++) {
+		for (int x = 0; x < imagePixels.length; x++) {
+            if(!(x == imagePixels.length-1 && y == imagePixels[0].length-1)) {
+                if (x == imagePixels.length-1) { // Last Column: |
+                    if(similarityGraph.isEdge(x+y+(y*(imagePixels.length-1)), (x+(y+1)+((y+1)*(imagePixels.length-1))))) {
+                        float R1 = red(imagePixels[x][y]);
+                        float G1 = green(imagePixels[x][y]);
+                        float B1 = blue(imagePixels[x][y]);
+
+                        float Y1 = YfromRGB(R1, G1, B1);
+                        float U1 = UfromRGB(R1, G1, B1);
+                        float V1 = VfromRGB(R1, G1, B1);
+
+                        float R2 = red(imagePixels[x][y+1]);
+                        float G2 = green(imagePixels[x][y+1]);
+                        float B2 = blue(imagePixels[x][y+1]);
+
+                        float Y2 = YfromRGB(R2, G2, B2);
+                        float U2 = UfromRGB(R2, G2, B2);
+                        float V2 = VfromRGB(R2, G2, B2);
+
+                        float differenceY = abs(Y1 - Y2);
+                        float differenceU = abs(U1 - U2);
+                        float differenceV = abs(V1 - V2);
+
+                        if (differenceY > DIFFERENCE_Y || differenceU > DIFFERENCE_U || differenceV > DIFFERENCE_V) {
+                            similarityGraph.removeEdge(x+y+(y*(imagePixels.length-1)), (x+(y+1)+((y+1)*(imagePixels.length-1))));
+                        }
+                    }
+                } else if (y == imagePixels[0].length-1) { // Last Row: -
+                    if(similarityGraph.isEdge(x+y+(y*(imagePixels.length-1)), ((x+1)+y+(y*(imagePixels.length-1))))) {
+                        float R1 = red(imagePixels[x][y]);
+                        float G1 = green(imagePixels[x][y]);
+                        float B1 = blue(imagePixels[x][y]);
+
+                        float Y1 = YfromRGB(R1, G1, B1);
+                        float U1 = UfromRGB(R1, G1, B1);
+                        float V1 = VfromRGB(R1, G1, B1);
+
+                        float R2 = red(imagePixels[x+1][y]);
+                        float G2 = green(imagePixels[x+1][y]);
+                        float B2 = blue(imagePixels[x+1][y]);
+
+                        float Y2 = YfromRGB(R2, G2, B2);
+                        float U2 = UfromRGB(R2, G2, B2);
+                        float V2 = VfromRGB(R2, G2, B2);
+
+                        float differenceY = abs(Y1 - Y2);
+                        float differenceU = abs(U1 - U2);
+                        float differenceV = abs(V1 - V2);
+
+                        if (differenceY > DIFFERENCE_Y || differenceU > DIFFERENCE_U || differenceV > DIFFERENCE_V) {
+                            similarityGraph.removeEdge(x+y+(y*(imagePixels.length-1)), ((x+1)+y+(y*(imagePixels.length-1))));
+                        }
+                    }
+                }else {
+                    if(similarityGraph.isEdge(x+y+(y*(imagePixels.length-1)), ((x+1)+y+(y*(imagePixels.length-1))))) { // -
+                        float R1 = red(imagePixels[x][y]);
+                        float G1 = green(imagePixels[x][y]);
+                        float B1 = blue(imagePixels[x][y]);
+
+                        float Y1 = YfromRGB(R1, G1, B1);
+                        float U1 = UfromRGB(R1, G1, B1);
+                        float V1 = VfromRGB(R1, G1, B1);
+
+                        float R2 = red(imagePixels[x+1][y]);
+                        float G2 = green(imagePixels[x+1][y]);
+                        float B2 = blue(imagePixels[x+1][y]);
+
+                        float Y2 = YfromRGB(R2, G2, B2);
+                        float U2 = UfromRGB(R2, G2, B2);
+                        float V2 = VfromRGB(R2, G2, B2);
+
+                        float differenceY = abs(Y1 - Y2);
+                        float differenceU = abs(U1 - U2);
+                        float differenceV = abs(V1 - V2);
+
+                        if (differenceY > DIFFERENCE_Y || differenceU > DIFFERENCE_U || differenceV > DIFFERENCE_V) {
+                            similarityGraph.removeEdge(x+y+(y*(imagePixels.length-1)), ((x+1)+y+(y*(imagePixels.length-1))));
+                        }
+                    }
+                    if(similarityGraph.isEdge(x+y+(y*(imagePixels.length-1)), (x+(y+1)+((y+1)*(imagePixels.length-1))))) { // |
+                        float R1 = red(imagePixels[x][y]);
+                        float G1 = green(imagePixels[x][y]);
+                        float B1 = blue(imagePixels[x][y]);
+
+                        float Y1 = YfromRGB(R1, G1, B1);
+                        float U1 = UfromRGB(R1, G1, B1);
+                        float V1 = VfromRGB(R1, G1, B1);
+
+                        float R2 = red(imagePixels[x][y+1]);
+                        float G2 = green(imagePixels[x][y+1]);
+                        float B2 = blue(imagePixels[x][y+1]);
+
+                        float Y2 = YfromRGB(R2, G2, B2);
+                        float U2 = UfromRGB(R2, G2, B2);
+                        float V2 = VfromRGB(R2, G2, B2);
+
+                        float differenceY = abs(Y1 - Y2);
+                        float differenceU = abs(U1 - U2);
+                        float differenceV = abs(V1 - V2);
+
+                        if (differenceY > DIFFERENCE_Y || differenceU > DIFFERENCE_U || differenceV > DIFFERENCE_V) {
+                            similarityGraph.removeEdge(x+y+(y*(imagePixels.length-1)), (x+(y+1)+((y+1)*(imagePixels.length-1))));
+                        }
+                    }
+                    if(similarityGraph.isEdge(x+y+(y*(imagePixels.length-1)), ((x+1)+(y+1)+((y+1)*(imagePixels.length-1))))) { // \
+                        float R1 = red(imagePixels[x][y]);
+                        float G1 = green(imagePixels[x][y]);
+                        float B1 = blue(imagePixels[x][y]);
+
+                        float Y1 = YfromRGB(R1, G1, B1);
+                        float U1 = UfromRGB(R1, G1, B1);
+                        float V1 = VfromRGB(R1, G1, B1);
+
+                        float R2 = red(imagePixels[x+1][y+1]);
+                        float G2 = green(imagePixels[x+1][y+1]);
+                        float B2 = blue(imagePixels[x+1][y+1]);
+
+                        float Y2 = YfromRGB(R2, G2, B2);
+                        float U2 = UfromRGB(R2, G2, B2);
+                        float V2 = VfromRGB(R2, G2, B2);
+
+                        float differenceY = abs(Y1 - Y2);
+                        float differenceU = abs(U1 - U2);
+                        float differenceV = abs(V1 - V2);
+
+                        if (differenceY > DIFFERENCE_Y || differenceU > DIFFERENCE_U || differenceV > DIFFERENCE_V) {
+                            similarityGraph.removeEdge(x+y+(y*(imagePixels.length-1)), ((x+1)+(y+1)+((y+1)*(imagePixels.length-1))));
+                        }
+                    }
+                    if(similarityGraph.isEdge((x+1)+y+(y*(imagePixels.length-1)), (x+(y+1)+((y+1)*(imagePixels.length-1))))) { // /
+                        float R1 = red(imagePixels[x+1][y]);
+                        float G1 = green(imagePixels[x+1][y]);
+                        float B1 = blue(imagePixels[x+1][y]);
+
+                        float Y1 = YfromRGB(R1, G1, B1);
+                        float U1 = UfromRGB(R1, G1, B1);
+                        float V1 = VfromRGB(R1, G1, B1);
+
+                        float R2 = red(imagePixels[x][y+1]);
+                        float G2 = green(imagePixels[x][y+1]);
+                        float B2 = blue(imagePixels[x][y+1]);
+
+                        float Y2 = YfromRGB(R2, G2, B2);
+                        float U2 = UfromRGB(R2, G2, B2);
+                        float V2 = VfromRGB(R2, G2, B2);
+
+                        float differenceY = abs(Y1 - Y2);
+                        float differenceU = abs(U1 - U2);
+                        float differenceV = abs(V1 - V2);
+
+                        if (differenceY > DIFFERENCE_Y || differenceU > DIFFERENCE_U || differenceV > DIFFERENCE_V) {
+                            similarityGraph.removeEdge((x+1)+y+(y*(imagePixels.length-1)), (x+(y+1)+((y+1)*(imagePixels.length-1))));
+                        }
+                    }
                 }
             }
 		}
@@ -118,29 +295,29 @@ void drawGraph() {
     strokeWeight(3);
     float lineWidth = width/(imagePixels.length * 1.0);
 	float lineHeight = height/(imagePixels[0].length * 1.0);
-    for (int x = 0; x < imagePixels.length; x++) {
-		for (int y = 0; y < imagePixels[0].length; y++) {
+    for (int y = 0; y < imagePixels[0].length; y++) {
+		for (int x = 0; x < imagePixels.length; x++) {
             if(!(x == imagePixels.length-1 && y == imagePixels[0].length-1)) {
-                if (x == imagePixels.length-1) {
-                    if(similarityGraph.isEdge(x+y, x+y+imagePixels.length)) {
-                        line((x*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2),(x*lineWidth)+(lineWidth/2),((y+1)*lineHeight)+(lineHeight/2)); // |
+                if (x == imagePixels.length-1) {  // Last Column: |
+                    if(similarityGraph.isEdge(x+y+(y*(imagePixels.length-1)), (x+(y+1)+((y+1)*(imagePixels.length-1))))) {
+                        line((x*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2),(x*lineWidth)+(lineWidth/2),((y+1)*lineHeight)+(lineHeight/2));
                     }
-                } else if (y == imagePixels[0].length-1) {
-                    if(similarityGraph.isEdge(x+y, x+y+1)) {
-                        line((x*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2),((x+1)*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2)); // -
+                } else if (y == imagePixels[0].length-1) {  // Last Row: -
+                    if(similarityGraph.isEdge(x+y+(y*(imagePixels.length-1)), ((x+1)+y+(y*(imagePixels.length-1))))) {
+                        line((x*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2),((x+1)*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2));
                     }
                 }else {
-                    if(similarityGraph.isEdge(x+y, x+y+1)) {
-                        line((x*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2),((x+1)*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2)); // -
+                    if(similarityGraph.isEdge(x+y+(y*(imagePixels.length-1)), ((x+1)+y+(y*(imagePixels.length-1))))) { // -
+                        line((x*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2),((x+1)*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2));
                     }
-                    if(similarityGraph.isEdge(x+y, x+y+imagePixels.length)) {
-                        line((x*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2),(x*lineWidth)+(lineWidth/2),((y+1)*lineHeight)+(lineHeight/2)); // |
+                    if(similarityGraph.isEdge(x+y+(y*(imagePixels.length-1)), (x+(y+1)+((y+1)*(imagePixels.length-1))))) { // |
+                        line((x*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2),(x*lineWidth)+(lineWidth/2),((y+1)*lineHeight)+(lineHeight/2));
                     }
-                    if(similarityGraph.isEdge(x+y, x+y+imagePixels.length+1)) {
-                        line((x*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2),((x+1)*lineWidth)+(lineWidth/2),((y+1)*lineHeight)+(lineHeight/2)); // \
+                    if(similarityGraph.isEdge(x+y+(y*(imagePixels.length-1)), ((x+1)+(y+1)+((y+1)*(imagePixels.length-1))))) { // \
+                        line((x*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2),((x+1)*lineWidth)+(lineWidth/2),((y+1)*lineHeight)+(lineHeight/2));
                     }
-                    if(similarityGraph.isEdge(x+y+1, x+y+imagePixels.length)) {
-                        line(((x+1)*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2),(x*lineWidth)+(lineWidth/2),((y+1)*lineHeight)+(lineHeight/2)); // /
+                    if(similarityGraph.isEdge((x+1)+y+(y*(imagePixels.length-1)), (x+(y+1)+((y+1)*(imagePixels.length-1))))) { // /
+                        line(((x+1)*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2),(x*lineWidth)+(lineWidth/2),((y+1)*lineHeight)+(lineHeight/2));
                     }
                 }
             }
@@ -153,6 +330,9 @@ void keyPressed() {
 		currState = (currState + 1) % NUM_DRAW_STATES;
         if (currState == FULLY_CONNECTED_STATE) {
             generateGraph = true;
+        } 
+        else if (currState == CUT_OFF_DISSIMILAR) {
+            cutOffDissimilar = true;
         }
 	}
 	if ( key == '1' ) {
@@ -185,6 +365,23 @@ void keyPressed() {
 		loadImagePixels();
 		currState = 0;
 	}
+}
+
+// https://www.pcmag.com/encyclopedia/term/yuvrgb-conversion-formulas:
+
+float YfromRGB(float R, float G, float B)
+{
+    return ((0.299 * R) + (0.587 * G) + (0.114 * B));
+}
+
+float UfromRGB(float R, float G, float B)
+{
+  return ((-0.147 * R) - (0.289 * G) + (0.436 * B));
+}
+
+float VfromRGB(float R, float G, float B)
+{
+  return ((0.615 * R) - (0.515 * G) - (0.100 * B));
 }
 
 // Used the following site for Graph implementation:
