@@ -4,6 +4,9 @@ color[][] imagePixels;
 int currState = 0;
 boolean generateGraph = false;
 boolean cutOffDissimilar = false;
+boolean resolveBlueCrossings = false;
+boolean resolveRedCrossings = false;
+boolean curveIsALoop = false;
 
 // Draw_State for application
 final int ORIGINAL_SCALE_STATE = 0;
@@ -13,7 +16,8 @@ final int FULLY_CONNECTED_STATE = 3;
 final int CUT_OFF_DISSIMILAR = 4;
 final int COLOR_CODE_CROSSINGS = 5;
 final int RESOLVE_BLUE_CROSSINGS = 6;
-final int NUM_DRAW_STATES = 7;
+final int RESOLVE_RED_CROSSINGS = 7;
+final int NUM_DRAW_STATES = 8;
 
 // Dissimilarity RGB Constants
 final int DIFFERENCE_Y = 48;
@@ -64,7 +68,18 @@ void draw() {
             break;
         case RESOLVE_BLUE_CROSSINGS:
             drawImagePixelsTransparent();
-            resolveBlueCrossings();
+            if (resolveBlueCrossings) {
+                resolveBlueCrossings();
+                resolveBlueCrossings = false;
+            }
+            drawGraphColorCodedCrossings();
+            break;
+        case RESOLVE_RED_CROSSINGS:
+            drawImagePixelsTransparent();
+            if (resolveRedCrossings) {
+                resolveRedCrossings();
+                resolveRedCrossings = false;
+            }
             drawGraphColorCodedCrossings();
             break;
 	}
@@ -436,12 +451,6 @@ void drawGraphColorCodedCrossings() {
                         line((x*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2),((x+1)*lineWidth)+(lineWidth/2),((y+1)*lineHeight)+(lineHeight/2));
                         line(((x+1)*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2),(x*lineWidth)+(lineWidth/2),((y+1)*lineHeight)+(lineHeight/2));
                         
-                        // (Edge) Points
-                        strokeWeight(10);
-                        point(((x+1)*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2));
-                        point((x*lineWidth)+(lineWidth/2),((y+1)*lineHeight)+(lineHeight/2));
-                        strokeWeight(3);
-                        
                         stroke(0,0,0);
                     } 
                     else { // Single Diagonal
@@ -507,6 +516,211 @@ void resolveBlueCrossings() {
 	}
 }
 
+void resolveRedCrossings() {
+    int count = 0;
+    for (int y = 0; y < imagePixels[0].length; y++) {
+		for (int x = 0; x < imagePixels.length; x++) {
+            if(!(x == imagePixels.length-1 || y == imagePixels[0].length-1)) {
+                if ((similarityGraph.isEdge(x+y+(y*(imagePixels.length-1)), ((x+1)+(y+1)+((y+1)*(imagePixels.length-1))))) && (similarityGraph.isEdge((x+1)+y+(y*(imagePixels.length-1)), (x+(y+1)+((y+1)*(imagePixels.length-1)))))) { // Crossing
+                    boolean differentColors = false;
+
+                    float R1 = red(imagePixels[x][y]);
+                    float G1 = green(imagePixels[x][y]);
+                    float B1 = blue(imagePixels[x][y]);
+
+                    float Y1 = YfromRGB(R1, G1, B1);
+                    float U1 = UfromRGB(R1, G1, B1);
+                    float V1 = VfromRGB(R1, G1, B1);
+
+                    float R2 = red(imagePixels[x][y+1]);
+                    float G2 = green(imagePixels[x][y+1]);
+                    float B2 = blue(imagePixels[x][y+1]);
+
+                    float Y2 = YfromRGB(R2, G2, B2);
+                    float U2 = UfromRGB(R2, G2, B2);
+                    float V2 = VfromRGB(R2, G2, B2);
+
+                    float differenceY = abs(Y1 - Y2);
+                    float differenceU = abs(U1 - U2);
+                    float differenceV = abs(V1 - V2);
+
+                    if (differenceY > DIFFERENCE_Y || differenceU > DIFFERENCE_U || differenceV > DIFFERENCE_V) {
+                        differentColors = true;
+                    }
+
+                    if (differentColors) {
+                        int weightDiagonal1 = 0; // \
+                        int weightDiagonal2 = 0; // /
+
+                        // Heuristic 1: Curves
+                        int curveLengthDiagonal1 = 1 + measureCurveLength(x+y+(y*(imagePixels.length-1)), ((x+1)+(y+1)+((y+1)*(imagePixels.length-1))), x+y+(y*(imagePixels.length-1))) + measureCurveLength(((x+1)+(y+1)+((y+1)*(imagePixels.length-1))), x+y+(y*(imagePixels.length-1)), ((x+1)+(y+1)+((y+1)*(imagePixels.length-1))));
+
+                        if (curveIsALoop) {
+                            curveLengthDiagonal1 = round(curveLengthDiagonal1/2.0);
+                            curveIsALoop = false;
+                        }
+
+                        int curveLengthDiagonal2 = 1 + measureCurveLength((x+1)+y+(y*(imagePixels.length-1)), (x+(y+1)+((y+1)*(imagePixels.length-1))), (x+1)+y+(y*(imagePixels.length-1))) + measureCurveLength((x+(y+1)+((y+1)*(imagePixels.length-1))), (x+1)+y+(y*(imagePixels.length-1)), (x+(y+1)+((y+1)*(imagePixels.length-1))));
+
+                        if (curveIsALoop) {
+                            curveLengthDiagonal2 = round(curveLengthDiagonal2/2.0);
+                            curveIsALoop = false;
+                        }
+
+                        // similarityGraph.removeEdge(x+y+(y*(imagePixels.length-1)), ((x+1)+(y+1)+((y+1)*(imagePixels.length-1)))); // \
+                        // similarityGraph.removeEdge((x+1)+y+(y*(imagePixels.length-1)), (x+(y+1)+((y+1)*(imagePixels.length-1)))); // /
+                    }
+                }
+            }
+		}
+	}
+}
+
+int measureCurveLength(int pixel1, int pixel2, int loopPixel) { // pixel1 == pixel to check valence for, pixel2 so we avoid recounting it, loopPixel to detect curve being a loop
+    int valence = 1;
+    int extraEdgeConnections = 0;
+
+    int topLeftPixel = -1;
+    int topPixel = -1;
+    int topRightPixel = -1;
+    int leftPixel = -1;
+    int rightPixel = -1;
+    int bottomLeftPixel = -1;
+    int bottomPixel = -1;
+    int bottomRightPixel = -1;
+
+    int newPixel = -1;
+    // print(pixel1 + ", " + pixel2 + "\n");
+
+    if (pixel1 == 0) { // top left corner
+        rightPixel = pixel1 + 1;
+        bottomPixel = pixel1 + (imagePixels.length);
+        bottomRightPixel = pixel1 + (imagePixels.length) + 1;
+    }
+    else if (pixel1 == (imagePixels.length-1)) { // top right corner
+        leftPixel = pixel1 - 1;
+        bottomPixel = pixel1 + (imagePixels.length);
+        bottomLeftPixel = pixel1 + (imagePixels.length) - 1;
+    }
+    else if (pixel1 == (imagePixels[0].length-1)+((imagePixels[0].length-1)*(imagePixels.length-1))) { // bottom left corner
+        topPixel = pixel1 - (imagePixels.length);
+        topRightPixel = pixel1 - (imagePixels.length) + 1;
+        rightPixel = pixel1 + 1;
+    }
+    else if (pixel1 == (imagePixels.length-1)+(imagePixels[0].length-1)+((imagePixels[0].length-1)*(imagePixels.length-1))) { // bottom right corner
+        topPixel = pixel1 - (imagePixels.length);
+        topLeftPixel = pixel1 - (imagePixels.length) - 1;
+        leftPixel = pixel1 - 1;
+    }
+    else if (pixel1 > 0 && pixel1 < (imagePixels.length-1)) { // top row
+        leftPixel = pixel1 - 1;
+        bottomLeftPixel = pixel1 + (imagePixels.length) - 1;
+        bottomPixel = pixel1 + (imagePixels.length);
+        bottomRightPixel = pixel1 + (imagePixels.length) + 1;
+        rightPixel = pixel1 + 1;
+    }
+    else if (pixel1 > (imagePixels[0].length-1)+((imagePixels[0].length-1)*(imagePixels.length-1)) && pixel1 < (imagePixels.length-1)+(imagePixels[0].length-1)+((imagePixels[0].length-1)*(imagePixels.length-1))) { // bottom row
+        leftPixel = pixel1 - 1;
+        topLeftPixel = pixel1 - (imagePixels.length) - 1;
+        topPixel = pixel1 - (imagePixels.length);
+        topRightPixel = pixel1 - (imagePixels.length) + 1;
+        rightPixel = pixel1 + 1;
+    }
+    else if (pixel1 % (imagePixels.length) == 0) { // left column
+        topPixel = pixel1 - (imagePixels.length);
+        topRightPixel = pixel1 - (imagePixels.length) + 1;
+        rightPixel = pixel1 + 1;
+        bottomRightPixel = pixel1 + (imagePixels.length) + 1;
+        bottomPixel = pixel1 + (imagePixels.length);
+    }
+    else if (((pixel1 + 1) % (imagePixels.length)) == 0) { // right column
+        topPixel = pixel1 - (imagePixels.length);
+        topLeftPixel = pixel1 - (imagePixels.length) - 1;
+        leftPixel = pixel1 - 1;
+        bottomLeftPixel = pixel1 + (imagePixels.length) - 1;
+        bottomPixel = pixel1 + (imagePixels.length);
+    }
+    else { // anywhere else
+        topLeftPixel = pixel1 - (imagePixels.length) - 1;
+        topPixel = pixel1 - (imagePixels.length);
+        topRightPixel = pixel1 - (imagePixels.length) + 1;
+        leftPixel = pixel1 - 1;
+        rightPixel = pixel1 + 1;
+        bottomLeftPixel = pixel1 + (imagePixels.length) - 1;
+        bottomPixel = pixel1 + (imagePixels.length);
+        bottomRightPixel = pixel1 + (imagePixels.length) + 1;
+    }
+
+    // Top-left pixel
+    if (topLeftPixel != -1 && topLeftPixel != pixel2) {
+        if (similarityGraph.isEdge(pixel1, topLeftPixel)) {
+            newPixel = topLeftPixel;
+            valence++;
+        }
+    }
+    // Top pixel
+    if (topPixel != -1 && topPixel != pixel2) {
+        if (similarityGraph.isEdge(pixel1, topPixel)) {
+            newPixel = topPixel;
+            valence++;
+        }
+    }
+    // Top-right pixel
+    if (topRightPixel != -1 && topRightPixel != pixel2) {
+        if (similarityGraph.isEdge(pixel1, topRightPixel)) {
+            newPixel = topRightPixel;
+            valence++;
+        }
+    }
+    // Left pixel
+    if (leftPixel != -1 && leftPixel != pixel2) {
+        if (similarityGraph.isEdge(pixel1, leftPixel)) {
+            newPixel = leftPixel;
+            valence++;
+        }
+    }
+    // Right pixel
+    if (rightPixel != -1 && rightPixel != pixel2) {
+        if (similarityGraph.isEdge(pixel1, rightPixel)) {
+            newPixel = rightPixel;
+            valence++;
+        }
+    }
+    // Bottom-left pixel
+    if (bottomLeftPixel != -1 && bottomLeftPixel != pixel2) {
+        if (similarityGraph.isEdge(pixel1, bottomLeftPixel)) {
+            newPixel = bottomLeftPixel;
+            valence++;
+        }
+    }
+    // Bottom pixel
+    if (bottomPixel != -1 && bottomPixel != pixel2) {
+        if (similarityGraph.isEdge(pixel1, bottomPixel)) {
+            newPixel = bottomPixel;
+            valence++;
+        }
+    }
+    // Bottom-right pixel
+    if (bottomRightPixel != -1 && bottomRightPixel != pixel2) {
+        if (similarityGraph.isEdge(pixel1, bottomRightPixel)) {
+            newPixel = bottomRightPixel;
+            valence++;
+        }
+    }
+
+    // if (valence == 1) {} // Done: Dead-End
+    if (valence == 2) {
+        if (newPixel != loopPixel) {
+            extraEdgeConnections = 1 + measureCurveLength(newPixel, pixel1, loopPixel);
+        } else {
+            curveIsALoop = true;
+        }
+    }
+    // if (valence >= 3) {} // Done: Junction
+
+    return extraEdgeConnections;
+}
+
 void keyPressed() {
 	if (key == ' ') {
 		currState = (currState + 1) % NUM_DRAW_STATES;
@@ -515,6 +729,12 @@ void keyPressed() {
         } 
         else if (currState == CUT_OFF_DISSIMILAR) {
             cutOffDissimilar = true;
+        }
+        else if (currState == RESOLVE_BLUE_CROSSINGS) {
+            resolveBlueCrossings = true;
+        }
+        else if (currState == RESOLVE_RED_CROSSINGS) {
+            resolveRedCrossings = true;
         }
 	}
 	if ( key == '1' ) {
@@ -544,6 +764,21 @@ void keyPressed() {
 	}
 	if ( key == '6' ) {
 		img = loadImage("Images/win31_386_input.png");
+		loadImagePixels();
+		currState = 0;
+	}
+    if ( key == '7' ) {
+		img = loadImage("Images/smb_jump_input.png");
+		loadImagePixels();
+		currState = 0;
+	}
+    if ( key == '8' ) {
+        img = loadImage("Images/gaxe_skeleton_input.png");
+		loadImagePixels();
+		currState = 0;
+	}
+    if ( key == '9' ) {
+		img = loadImage("Images/win31_setup_input.png");
 		loadImagePixels();
 		currState = 0;
 	}
