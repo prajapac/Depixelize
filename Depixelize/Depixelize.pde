@@ -301,23 +301,47 @@ void drawGraph() {
                 if (x == imagePixels.length-1) {  // Last Column: |
                     if(similarityGraph.isEdge(x+y+(y*(imagePixels.length-1)), (x+(y+1)+((y+1)*(imagePixels.length-1))))) {
                         line((x*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2),(x*lineWidth)+(lineWidth/2),((y+1)*lineHeight)+(lineHeight/2));
+                        strokeWeight(10);
+                        point((x*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2));
+                        point((x*lineWidth)+(lineWidth/2),((y+1)*lineHeight)+(lineHeight/2));
+                        strokeWeight(3);
                     }
                 } else if (y == imagePixels[0].length-1) {  // Last Row: -
                     if(similarityGraph.isEdge(x+y+(y*(imagePixels.length-1)), ((x+1)+y+(y*(imagePixels.length-1))))) {
                         line((x*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2),((x+1)*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2));
+                        strokeWeight(10);
+                        point((x*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2));
+                        point(((x+1)*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2));
+                        strokeWeight(3);
                     }
                 }else {
                     if(similarityGraph.isEdge(x+y+(y*(imagePixels.length-1)), ((x+1)+y+(y*(imagePixels.length-1))))) { // -
                         line((x*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2),((x+1)*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2));
+                        strokeWeight(10);
+                        point((x*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2));
+                        point(((x+1)*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2));
+                        strokeWeight(3);
                     }
                     if(similarityGraph.isEdge(x+y+(y*(imagePixels.length-1)), (x+(y+1)+((y+1)*(imagePixels.length-1))))) { // |
                         line((x*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2),(x*lineWidth)+(lineWidth/2),((y+1)*lineHeight)+(lineHeight/2));
+                        strokeWeight(10);
+                        point((x*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2));
+                        point((x*lineWidth)+(lineWidth/2),((y+1)*lineHeight)+(lineHeight/2));
+                        strokeWeight(3);
                     }
                     if(similarityGraph.isEdge(x+y+(y*(imagePixels.length-1)), ((x+1)+(y+1)+((y+1)*(imagePixels.length-1))))) { // \
                         line((x*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2),((x+1)*lineWidth)+(lineWidth/2),((y+1)*lineHeight)+(lineHeight/2));
+                        strokeWeight(10);
+                        point((x*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2));
+                        point(((x+1)*lineWidth)+(lineWidth/2),((y+1)*lineHeight)+(lineHeight/2));
+                        strokeWeight(3);
                     }
                     if(similarityGraph.isEdge((x+1)+y+(y*(imagePixels.length-1)), (x+(y+1)+((y+1)*(imagePixels.length-1))))) { // /
                         line(((x+1)*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2),(x*lineWidth)+(lineWidth/2),((y+1)*lineHeight)+(lineHeight/2));
+                        strokeWeight(10);
+                        point(((x+1)*lineWidth)+(lineWidth/2),(y*lineHeight)+(lineHeight/2));
+                        point((x*lineWidth)+(lineWidth/2),((y+1)*lineHeight)+(lineHeight/2));
+                        strokeWeight(3);
                     }
                 }
             }
