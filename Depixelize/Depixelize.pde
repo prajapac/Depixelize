@@ -24,6 +24,9 @@ final int DIFFERENCE_Y = 48;
 final int DIFFERENCE_U = 7;
 final int DIFFERENCE_V = 6;
 
+// Heuristic case 3 for resolving red crossings
+final int ISLAND_WEIGHT = 5;
+
 void setup() {
 	size(1024, 1024);
 	imageMode(CENTER);
@@ -567,8 +570,30 @@ void resolveRedCrossings() {
                             curveIsALoop = false;
                         }
 
-                        // similarityGraph.removeEdge(x+y+(y*(imagePixels.length-1)), ((x+1)+(y+1)+((y+1)*(imagePixels.length-1)))); // \
-                        // similarityGraph.removeEdge((x+1)+y+(y*(imagePixels.length-1)), (x+(y+1)+((y+1)*(imagePixels.length-1)))); // /
+                        if (curveLengthDiagonal1 > curveLengthDiagonal2) {
+                            weightDiagonal1 += (curveLengthDiagonal1 - curveLengthDiagonal2);
+                        }
+                        else if (curveLengthDiagonal2 > curveLengthDiagonal1) {
+                            weightDiagonal2 += (curveLengthDiagonal2 - curveLengthDiagonal1);
+                        }
+
+                        // Heuristic 2: Sparse Pixels
+
+                        // Heuristic 3: Islands
+                        boolean diagonal1IsIsland = islandCheck(x+y+(y*(imagePixels.length-1)), ((x+1)+(y+1)+((y+1)*(imagePixels.length-1)))) || islandCheck(((x+1)+(y+1)+((y+1)*(imagePixels.length-1))), x+y+(y*(imagePixels.length-1)));
+                        boolean diagonal2IsIsland = islandCheck((x+1)+y+(y*(imagePixels.length-1)), (x+(y+1)+((y+1)*(imagePixels.length-1)))) || islandCheck((x+(y+1)+((y+1)*(imagePixels.length-1))), (x+1)+y+(y*(imagePixels.length-1)));
+
+                        if (diagonal1IsIsland && !diagonal2IsIsland) {
+                            weightDiagonal1 += ISLAND_WEIGHT;
+                        } else if (!diagonal1IsIsland && diagonal2IsIsland) {
+                            weightDiagonal2 += ISLAND_WEIGHT;
+                        }
+
+                        if (weightDiagonal1 > weightDiagonal2) {
+                            similarityGraph.removeEdge((x+1)+y+(y*(imagePixels.length-1)), (x+(y+1)+((y+1)*(imagePixels.length-1)))); // /
+                        } else if (weightDiagonal2 > weightDiagonal1) {
+                            similarityGraph.removeEdge(x+y+(y*(imagePixels.length-1)), ((x+1)+(y+1)+((y+1)*(imagePixels.length-1)))); // \
+                        }                        
                     }
                 }
             }
@@ -590,7 +615,6 @@ int measureCurveLength(int pixel1, int pixel2, int loopPixel) { // pixel1 == pix
     int bottomRightPixel = -1;
 
     int newPixel = -1;
-    // print(pixel1 + ", " + pixel2 + "\n");
 
     if (pixel1 == 0) { // top left corner
         rightPixel = pixel1 + 1;
@@ -719,6 +743,145 @@ int measureCurveLength(int pixel1, int pixel2, int loopPixel) { // pixel1 == pix
     // if (valence >= 3) {} // Done: Junction
 
     return extraEdgeConnections;
+}
+
+boolean islandCheck(int pixel1, int pixel2) {
+    boolean islandCheck = false;
+
+    int valence = 1;
+
+    int topLeftPixel = -1;
+    int topPixel = -1;
+    int topRightPixel = -1;
+    int leftPixel = -1;
+    int rightPixel = -1;
+    int bottomLeftPixel = -1;
+    int bottomPixel = -1;
+    int bottomRightPixel = -1;
+
+    int newPixel = -1;
+
+    if (pixel1 == 0) { // top left corner
+        rightPixel = pixel1 + 1;
+        bottomPixel = pixel1 + (imagePixels.length);
+        bottomRightPixel = pixel1 + (imagePixels.length) + 1;
+    }
+    else if (pixel1 == (imagePixels.length-1)) { // top right corner
+        leftPixel = pixel1 - 1;
+        bottomPixel = pixel1 + (imagePixels.length);
+        bottomLeftPixel = pixel1 + (imagePixels.length) - 1;
+    }
+    else if (pixel1 == (imagePixels[0].length-1)+((imagePixels[0].length-1)*(imagePixels.length-1))) { // bottom left corner
+        topPixel = pixel1 - (imagePixels.length);
+        topRightPixel = pixel1 - (imagePixels.length) + 1;
+        rightPixel = pixel1 + 1;
+    }
+    else if (pixel1 == (imagePixels.length-1)+(imagePixels[0].length-1)+((imagePixels[0].length-1)*(imagePixels.length-1))) { // bottom right corner
+        topPixel = pixel1 - (imagePixels.length);
+        topLeftPixel = pixel1 - (imagePixels.length) - 1;
+        leftPixel = pixel1 - 1;
+    }
+    else if (pixel1 > 0 && pixel1 < (imagePixels.length-1)) { // top row
+        leftPixel = pixel1 - 1;
+        bottomLeftPixel = pixel1 + (imagePixels.length) - 1;
+        bottomPixel = pixel1 + (imagePixels.length);
+        bottomRightPixel = pixel1 + (imagePixels.length) + 1;
+        rightPixel = pixel1 + 1;
+    }
+    else if (pixel1 > (imagePixels[0].length-1)+((imagePixels[0].length-1)*(imagePixels.length-1)) && pixel1 < (imagePixels.length-1)+(imagePixels[0].length-1)+((imagePixels[0].length-1)*(imagePixels.length-1))) { // bottom row
+        leftPixel = pixel1 - 1;
+        topLeftPixel = pixel1 - (imagePixels.length) - 1;
+        topPixel = pixel1 - (imagePixels.length);
+        topRightPixel = pixel1 - (imagePixels.length) + 1;
+        rightPixel = pixel1 + 1;
+    }
+    else if (pixel1 % (imagePixels.length) == 0) { // left column
+        topPixel = pixel1 - (imagePixels.length);
+        topRightPixel = pixel1 - (imagePixels.length) + 1;
+        rightPixel = pixel1 + 1;
+        bottomRightPixel = pixel1 + (imagePixels.length) + 1;
+        bottomPixel = pixel1 + (imagePixels.length);
+    }
+    else if (((pixel1 + 1) % (imagePixels.length)) == 0) { // right column
+        topPixel = pixel1 - (imagePixels.length);
+        topLeftPixel = pixel1 - (imagePixels.length) - 1;
+        leftPixel = pixel1 - 1;
+        bottomLeftPixel = pixel1 + (imagePixels.length) - 1;
+        bottomPixel = pixel1 + (imagePixels.length);
+    }
+    else { // anywhere else
+        topLeftPixel = pixel1 - (imagePixels.length) - 1;
+        topPixel = pixel1 - (imagePixels.length);
+        topRightPixel = pixel1 - (imagePixels.length) + 1;
+        leftPixel = pixel1 - 1;
+        rightPixel = pixel1 + 1;
+        bottomLeftPixel = pixel1 + (imagePixels.length) - 1;
+        bottomPixel = pixel1 + (imagePixels.length);
+        bottomRightPixel = pixel1 + (imagePixels.length) + 1;
+    }
+
+    // Top-left pixel
+    if (topLeftPixel != -1 && topLeftPixel != pixel2) {
+        if (similarityGraph.isEdge(pixel1, topLeftPixel)) {
+            newPixel = topLeftPixel;
+            valence++;
+        }
+    }
+    // Top pixel
+    if (topPixel != -1 && topPixel != pixel2) {
+        if (similarityGraph.isEdge(pixel1, topPixel)) {
+            newPixel = topPixel;
+            valence++;
+        }
+    }
+    // Top-right pixel
+    if (topRightPixel != -1 && topRightPixel != pixel2) {
+        if (similarityGraph.isEdge(pixel1, topRightPixel)) {
+            newPixel = topRightPixel;
+            valence++;
+        }
+    }
+    // Left pixel
+    if (leftPixel != -1 && leftPixel != pixel2) {
+        if (similarityGraph.isEdge(pixel1, leftPixel)) {
+            newPixel = leftPixel;
+            valence++;
+        }
+    }
+    // Right pixel
+    if (rightPixel != -1 && rightPixel != pixel2) {
+        if (similarityGraph.isEdge(pixel1, rightPixel)) {
+            newPixel = rightPixel;
+            valence++;
+        }
+    }
+    // Bottom-left pixel
+    if (bottomLeftPixel != -1 && bottomLeftPixel != pixel2) {
+        if (similarityGraph.isEdge(pixel1, bottomLeftPixel)) {
+            newPixel = bottomLeftPixel;
+            valence++;
+        }
+    }
+    // Bottom pixel
+    if (bottomPixel != -1 && bottomPixel != pixel2) {
+        if (similarityGraph.isEdge(pixel1, bottomPixel)) {
+            newPixel = bottomPixel;
+            valence++;
+        }
+    }
+    // Bottom-right pixel
+    if (bottomRightPixel != -1 && bottomRightPixel != pixel2) {
+        if (similarityGraph.isEdge(pixel1, bottomRightPixel)) {
+            newPixel = bottomRightPixel;
+            valence++;
+        }
+    }
+
+    if (valence == 1) {
+        islandCheck = true;
+    }
+
+    return islandCheck;
 }
 
 void keyPressed() {
