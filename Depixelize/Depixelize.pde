@@ -12,7 +12,8 @@ final int INITIAL_DEPIXELIZE_STATE = 2;
 final int FULLY_CONNECTED_STATE = 3;
 final int CUT_OFF_DISSIMILAR = 4;
 final int COLOR_CODE_CROSSINGS = 5;
-final int NUM_DRAW_STATES = 6;
+final int RESOLVE_BLUE_CROSSINGS = 6;
+final int NUM_DRAW_STATES = 7;
 
 // Dissimilarity RGB Constants
 final int DIFFERENCE_Y = 48;
@@ -59,6 +60,11 @@ void draw() {
             break;
         case COLOR_CODE_CROSSINGS:
             drawImagePixelsTransparent();
+            drawGraphColorCodedCrossings();
+            break;
+        case RESOLVE_BLUE_CROSSINGS:
+            drawImagePixelsTransparent();
+            resolveBlueCrossings();
             drawGraphColorCodedCrossings();
             break;
 	}
@@ -453,6 +459,47 @@ void drawGraphColorCodedCrossings() {
                             point((x*lineWidth)+(lineWidth/2),((y+1)*lineHeight)+(lineHeight/2));
                             strokeWeight(3);
                         }
+                    }
+                }
+            }
+		}
+	}
+}
+
+void resolveBlueCrossings() {
+    for (int y = 0; y < imagePixels[0].length; y++) {
+		for (int x = 0; x < imagePixels.length; x++) {
+            if(!(x == imagePixels.length-1 || y == imagePixels[0].length-1)) {
+                if ((similarityGraph.isEdge(x+y+(y*(imagePixels.length-1)), ((x+1)+(y+1)+((y+1)*(imagePixels.length-1))))) && (similarityGraph.isEdge((x+1)+y+(y*(imagePixels.length-1)), (x+(y+1)+((y+1)*(imagePixels.length-1)))))) { // Crossing
+                    boolean differentColors = false;
+
+                    float R1 = red(imagePixels[x][y]);
+                    float G1 = green(imagePixels[x][y]);
+                    float B1 = blue(imagePixels[x][y]);
+
+                    float Y1 = YfromRGB(R1, G1, B1);
+                    float U1 = UfromRGB(R1, G1, B1);
+                    float V1 = VfromRGB(R1, G1, B1);
+
+                    float R2 = red(imagePixels[x][y+1]);
+                    float G2 = green(imagePixels[x][y+1]);
+                    float B2 = blue(imagePixels[x][y+1]);
+
+                    float Y2 = YfromRGB(R2, G2, B2);
+                    float U2 = UfromRGB(R2, G2, B2);
+                    float V2 = VfromRGB(R2, G2, B2);
+
+                    float differenceY = abs(Y1 - Y2);
+                    float differenceU = abs(U1 - U2);
+                    float differenceV = abs(V1 - V2);
+
+                    if (differenceY > DIFFERENCE_Y || differenceU > DIFFERENCE_U || differenceV > DIFFERENCE_V) {
+                        differentColors = true;
+                    }
+
+                    if (!differentColors) {
+                        similarityGraph.removeEdge(x+y+(y*(imagePixels.length-1)), ((x+1)+(y+1)+((y+1)*(imagePixels.length-1))));
+                        similarityGraph.removeEdge((x+1)+y+(y*(imagePixels.length-1)), (x+(y+1)+((y+1)*(imagePixels.length-1))));
                     }
                 }
             }
