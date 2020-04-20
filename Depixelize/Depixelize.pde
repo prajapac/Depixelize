@@ -1164,7 +1164,7 @@ class Graph {
         }
     }
 
-    void DFSUtilSparsePixels(int v, int topLeftX, int topLeftY, int width, int height, boolean[] visited, IntList componentList) {
+    void DFSUtilSparsePixels(int v, int topLeftX, int topLeftY, int width, int height, boolean[] visited, IntList componentList, IntList truncatedVertexList) {
         visited[v] = true;
         componentList.append(v);
 
@@ -1211,14 +1211,14 @@ class Graph {
             topRightPixel = v - (imagePixels.length) + 1;
             rightPixel = v + 1;
         }
-        else if (v % (width) == 0 || v % (imagePixels.length) == 0) { // left column
+        else if (v % (imagePixels.length) == 0) { // left column
             topPixel = v - (imagePixels.length);
             topRightPixel = v - (imagePixels.length) + 1;
             rightPixel = v + 1;
             bottomRightPixel = v + (imagePixels.length) + 1;
             bottomPixel = v + (imagePixels.length);
         }
-        else if (((v + 1) % (width)) == 0 || ((v + 1) % (imagePixels.length)) == 0) { // right column
+        else if ((v + 1) % (imagePixels.length) == 0) { // right column
             topPixel = v - (imagePixels.length);
             topLeftPixel = v - (imagePixels.length) - 1;
             leftPixel = v - 1;
@@ -1237,51 +1237,51 @@ class Graph {
         }
 
         // Top-left pixel
-        if (topLeftPixel != -1) {
+        if (topLeftPixel != -1 && truncatedVertexList.hasValue(topLeftPixel)) {
             if (similarityGraph.isEdge(v, topLeftPixel) && !visited[topLeftPixel]) {
-                DFSUtilSparsePixels(topLeftPixel, topLeftX, topLeftY, width, height, visited, componentList);
+                DFSUtilSparsePixels(topLeftPixel, topLeftX, topLeftY, width, height, visited, componentList, truncatedVertexList);
             }
         }
         // Top pixel
-        if (topPixel != -1) {
+        if (topPixel != -1 && truncatedVertexList.hasValue(topPixel)) {
             if (similarityGraph.isEdge(v, topPixel) && !visited[topPixel]) {
-                DFSUtilSparsePixels(topPixel, topLeftX, topLeftY, width, height, visited, componentList);
+                DFSUtilSparsePixels(topPixel, topLeftX, topLeftY, width, height, visited, componentList, truncatedVertexList);
             }
         }
         // Top-right pixel
-        if (topRightPixel != -1) {
+        if (topRightPixel != -1 && truncatedVertexList.hasValue(topRightPixel)) {
             if (similarityGraph.isEdge(v, topRightPixel) && !visited[topRightPixel]) {
-                DFSUtilSparsePixels(topRightPixel, topLeftX, topLeftY, width, height, visited, componentList);
+                DFSUtilSparsePixels(topRightPixel, topLeftX, topLeftY, width, height, visited, componentList, truncatedVertexList);
             }
         }
         // Left pixel
-        if (leftPixel != -1) {
+        if (leftPixel != -1 && truncatedVertexList.hasValue(leftPixel)) {
             if (similarityGraph.isEdge(v, leftPixel) && !visited[leftPixel]) {
-                DFSUtilSparsePixels(leftPixel, topLeftX, topLeftY, width, height, visited, componentList);
+                DFSUtilSparsePixels(leftPixel, topLeftX, topLeftY, width, height, visited, componentList, truncatedVertexList);
             }
         }
         // Right pixel
-        if (rightPixel != -1) {
+        if (rightPixel != -1 && truncatedVertexList.hasValue(rightPixel)) {
             if (similarityGraph.isEdge(v, rightPixel) && !visited[rightPixel]) {
-                DFSUtilSparsePixels(rightPixel, topLeftX, topLeftY, width, height, visited, componentList);
+                DFSUtilSparsePixels(rightPixel, topLeftX, topLeftY, width, height, visited, componentList, truncatedVertexList);
             }
         }
         // Bottom-left pixel
-        if (bottomLeftPixel != -1) {
+        if (bottomLeftPixel != -1 && truncatedVertexList.hasValue(bottomLeftPixel)) {
             if (similarityGraph.isEdge(v, bottomLeftPixel) && !visited[bottomLeftPixel]) {
-                DFSUtilSparsePixels(bottomLeftPixel, topLeftX, topLeftY, width, height, visited, componentList);
+                DFSUtilSparsePixels(bottomLeftPixel, topLeftX, topLeftY, width, height, visited, componentList, truncatedVertexList);
             }
         }
         // Bottom pixel
-        if (bottomPixel != -1) {
+        if (bottomPixel != -1 && truncatedVertexList.hasValue(bottomPixel)) {
             if (similarityGraph.isEdge(v, bottomPixel) && !visited[bottomPixel]) {
-                DFSUtilSparsePixels(bottomPixel, topLeftX, topLeftY, width, height, visited, componentList);
+                DFSUtilSparsePixels(bottomPixel, topLeftX, topLeftY, width, height, visited, componentList, truncatedVertexList);
             }
         }
         // Bottom-right pixel
-        if (bottomRightPixel != -1) {
+        if (bottomRightPixel != -1 && truncatedVertexList.hasValue(bottomRightPixel)) {
             if (similarityGraph.isEdge(v, bottomRightPixel) && !visited[bottomRightPixel]) {
-                DFSUtilSparsePixels(bottomRightPixel, topLeftX, topLeftY, width, height, visited, componentList);
+                DFSUtilSparsePixels(bottomRightPixel, topLeftX, topLeftY, width, height, visited, componentList, truncatedVertexList);
             }
         }
     }
@@ -1301,7 +1301,7 @@ class Graph {
             int v = truncatedVertexList.get(i);
             if(!visited[v]) {
                 componentLists.add(new IntList());
-                DFSUtilSparsePixels(v, topLeftX, topLeftY, width, height, visited, componentLists.get(componentLists.size()-1));
+                DFSUtilSparsePixels(v, topLeftX, topLeftY, width, height, visited, componentLists.get(componentLists.size()-1), truncatedVertexList);
             }
         }
 
