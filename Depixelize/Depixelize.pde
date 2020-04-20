@@ -556,14 +556,14 @@ void resolveRedCrossings() {
                         int weightDiagonal2 = 0; // /
 
                         // Heuristic 1: Curves
-                        int curveLengthDiagonal1 = 1 + measureCurveLength(x+y+(y*(imagePixels.length-1)), ((x+1)+(y+1)+((y+1)*(imagePixels.length-1))), x+y+(y*(imagePixels.length-1))) + measureCurveLength(((x+1)+(y+1)+((y+1)*(imagePixels.length-1))), x+y+(y*(imagePixels.length-1)), ((x+1)+(y+1)+((y+1)*(imagePixels.length-1))));
+                        int curveLengthDiagonal1 = 1 + measureCurveLength(x+y+(y*(imagePixels.length-1)), ((x+1)+(y+1)+((y+1)*(imagePixels.length-1))), x+y+(y*(imagePixels.length-1))) + measureCurveLength(((x+1)+(y+1)+((y+1)*(imagePixels.length-1))), x+y+(y*(imagePixels.length-1)), ((x+1)+(y+1)+((y+1)*(imagePixels.length-1))));  // \
 
                         if (curveIsALoop) {
                             curveLengthDiagonal1 = round(curveLengthDiagonal1/2.0);
                             curveIsALoop = false;
                         }
 
-                        int curveLengthDiagonal2 = 1 + measureCurveLength((x+1)+y+(y*(imagePixels.length-1)), (x+(y+1)+((y+1)*(imagePixels.length-1))), (x+1)+y+(y*(imagePixels.length-1))) + measureCurveLength((x+(y+1)+((y+1)*(imagePixels.length-1))), (x+1)+y+(y*(imagePixels.length-1)), (x+(y+1)+((y+1)*(imagePixels.length-1))));
+                        int curveLengthDiagonal2 = 1 + measureCurveLength((x+1)+y+(y*(imagePixels.length-1)), (x+(y+1)+((y+1)*(imagePixels.length-1))), (x+1)+y+(y*(imagePixels.length-1))) + measureCurveLength((x+(y+1)+((y+1)*(imagePixels.length-1))), (x+1)+y+(y*(imagePixels.length-1)), (x+(y+1)+((y+1)*(imagePixels.length-1)))); // /
 
                         if (curveIsALoop) {
                             curveLengthDiagonal2 = round(curveLengthDiagonal2/2.0);
@@ -578,10 +578,37 @@ void resolveRedCrossings() {
                         }
 
                         // Heuristic 2: Sparse Pixels
+                        int diagonal1ConnectedComponentSize = 0;
+                        int diagonal2ConnectedComponentSize = 0;
+
+                        int topLeftX = max(0, (x-3));
+                        int topLeftY = max(0, (y-3));
+                        int bottomRightX = min((x+4), imagePixels.length-1);
+                        int bottomRightY = min((y+4), imagePixels[0].length-1);
+                        
+                        int width = (bottomRightX - topLeftX) + 1;
+                        int height = (bottomRightY - topLeftY) + 1;
+
+                        ArrayList<IntList> componentLists = similarityGraph.sparsePixelsComponentCount(topLeftX, topLeftY, width, height);
+                        
+                        for (int i = 0; i < componentLists.size(); i++) {
+                            if (componentLists.get(i).hasValue(x+y+(y*(imagePixels.length-1)))) {
+                                diagonal1ConnectedComponentSize = componentLists.get(i).size(); // \
+                            } else if (componentLists.get(i).hasValue((x+1)+y+(y*(imagePixels.length-1)))) {
+                                diagonal2ConnectedComponentSize = componentLists.get(i).size(); // /
+                            }
+                        }
+
+                        if (diagonal1ConnectedComponentSize < diagonal2ConnectedComponentSize) {
+                            weightDiagonal1 += (diagonal2ConnectedComponentSize - diagonal1ConnectedComponentSize);
+                        }
+                        else if (diagonal2ConnectedComponentSize < diagonal1ConnectedComponentSize) {
+                            weightDiagonal2 += (diagonal1ConnectedComponentSize - diagonal2ConnectedComponentSize);
+                        }
 
                         // Heuristic 3: Islands
-                        boolean diagonal1IsIsland = islandCheck(x+y+(y*(imagePixels.length-1)), ((x+1)+(y+1)+((y+1)*(imagePixels.length-1)))) || islandCheck(((x+1)+(y+1)+((y+1)*(imagePixels.length-1))), x+y+(y*(imagePixels.length-1)));
-                        boolean diagonal2IsIsland = islandCheck((x+1)+y+(y*(imagePixels.length-1)), (x+(y+1)+((y+1)*(imagePixels.length-1)))) || islandCheck((x+(y+1)+((y+1)*(imagePixels.length-1))), (x+1)+y+(y*(imagePixels.length-1)));
+                        boolean diagonal1IsIsland = islandCheck(x+y+(y*(imagePixels.length-1)), ((x+1)+(y+1)+((y+1)*(imagePixels.length-1)))) || islandCheck(((x+1)+(y+1)+((y+1)*(imagePixels.length-1))), x+y+(y*(imagePixels.length-1))); // \
+                        boolean diagonal2IsIsland = islandCheck((x+1)+y+(y*(imagePixels.length-1)), (x+(y+1)+((y+1)*(imagePixels.length-1)))) || islandCheck((x+(y+1)+((y+1)*(imagePixels.length-1))), (x+1)+y+(y*(imagePixels.length-1))); // /
 
                         if (diagonal1IsIsland && !diagonal2IsIsland) {
                             weightDiagonal1 += ISLAND_WEIGHT;
@@ -593,7 +620,10 @@ void resolveRedCrossings() {
                             similarityGraph.removeEdge((x+1)+y+(y*(imagePixels.length-1)), (x+(y+1)+((y+1)*(imagePixels.length-1)))); // /
                         } else if (weightDiagonal2 > weightDiagonal1) {
                             similarityGraph.removeEdge(x+y+(y*(imagePixels.length-1)), ((x+1)+(y+1)+((y+1)*(imagePixels.length-1)))); // \
-                        }                        
+                        } else if (weightDiagonal1 == weightDiagonal2) {
+                            similarityGraph.removeEdge((x+1)+y+(y*(imagePixels.length-1)), (x+(y+1)+((y+1)*(imagePixels.length-1)))); // /
+                            similarityGraph.removeEdge(x+y+(y*(imagePixels.length-1)), ((x+1)+(y+1)+((y+1)*(imagePixels.length-1)))); // \
+                        }                
                     }
                 }
             }
@@ -966,6 +996,8 @@ float VfromRGB(float R, float G, float B)
 
 // Used the following site for Graph implementation:
 // https://www.programiz.com/dsa/graph-adjacency-matrix
+// And the following for graph traversal algorithm (DFS) to count connected component sizes (Heuristic 2: Sparse pixels)
+// https://www.geeksforgeeks.org/connected-components-in-an-undirected-graph/
 class Graph {
     private boolean adjacencyMatrix[][];
     private int numVertices;
@@ -987,6 +1019,293 @@ class Graph {
  
     public boolean isEdge(int i, int j) {
         return adjacencyMatrix[i][j];
+    }
+
+    void DFSUtilPrint(int v, boolean[] visited, IntList componentList) {
+        visited[v] = true;
+        componentList.append(v);
+        
+        int topLeftPixel = -1;
+        int topPixel = -1;
+        int topRightPixel = -1;
+        int leftPixel = -1;
+        int rightPixel = -1;
+        int bottomLeftPixel = -1;
+        int bottomPixel = -1;
+        int bottomRightPixel = -1;
+
+        if (v == 0) { // top left corner
+            rightPixel = v + 1;
+            bottomPixel = v + (imagePixels.length);
+            bottomRightPixel = v + (imagePixels.length) + 1;
+        }
+        else if (v == (imagePixels.length-1)) { // top right corner
+            leftPixel = v - 1;
+            bottomPixel = v + (imagePixels.length);
+            bottomLeftPixel = v + (imagePixels.length) - 1;
+        }
+        else if (v == (imagePixels[0].length-1)+((imagePixels[0].length-1)*(imagePixels.length-1))) { // bottom left corner
+            topPixel = v - (imagePixels.length);
+            topRightPixel = v - (imagePixels.length) + 1;
+            rightPixel = v + 1;
+        }
+        else if (v == (imagePixels.length-1)+(imagePixels[0].length-1)+((imagePixels[0].length-1)*(imagePixels.length-1))) { // bottom right corner
+            topPixel = v - (imagePixels.length);
+            topLeftPixel = v - (imagePixels.length) - 1;
+            leftPixel = v - 1;
+        }
+        else if (v > 0 && v < (imagePixels.length-1)) { // top row
+            leftPixel = v - 1;
+            bottomLeftPixel = v + (imagePixels.length) - 1;
+            bottomPixel = v + (imagePixels.length);
+            bottomRightPixel = v + (imagePixels.length) + 1;
+            rightPixel = v + 1;
+        }
+        else if (v > (imagePixels[0].length-1)+((imagePixels[0].length-1)*(imagePixels.length-1)) && v < (imagePixels.length-1)+(imagePixels[0].length-1)+((imagePixels[0].length-1)*(imagePixels.length-1))) { // bottom row
+            leftPixel = v - 1;
+            topLeftPixel = v - (imagePixels.length) - 1;
+            topPixel = v - (imagePixels.length);
+            topRightPixel = v - (imagePixels.length) + 1;
+            rightPixel = v + 1;
+        }
+        else if (v % (imagePixels.length) == 0) { // left column
+            topPixel = v - (imagePixels.length);
+            topRightPixel = v - (imagePixels.length) + 1;
+            rightPixel = v + 1;
+            bottomRightPixel = v + (imagePixels.length) + 1;
+            bottomPixel = v + (imagePixels.length);
+        }
+        else if (((v + 1) % (imagePixels.length)) == 0) { // right column
+            topPixel = v - (imagePixels.length);
+            topLeftPixel = v - (imagePixels.length) - 1;
+            leftPixel = v - 1;
+            bottomLeftPixel = v + (imagePixels.length) - 1;
+            bottomPixel = v + (imagePixels.length);
+        }
+        else { // anywhere else
+            topLeftPixel = v - (imagePixels.length) - 1;
+            topPixel = v - (imagePixels.length);
+            topRightPixel = v - (imagePixels.length) + 1;
+            leftPixel = v - 1;
+            rightPixel = v + 1;
+            bottomLeftPixel = v + (imagePixels.length) - 1;
+            bottomPixel = v + (imagePixels.length);
+            bottomRightPixel = v + (imagePixels.length) + 1;
+        }
+
+        // Top-left pixel
+        if (topLeftPixel != -1) {
+            if (similarityGraph.isEdge(v, topLeftPixel) && !visited[topLeftPixel]) {
+                DFSUtilPrint(topLeftPixel, visited, componentList);
+            }
+        }
+        // Top pixel
+        if (topPixel != -1) {
+            if (similarityGraph.isEdge(v, topPixel) && !visited[topPixel]) {
+                DFSUtilPrint(topPixel, visited, componentList);
+            }
+        }
+        // Top-right pixel
+        if (topRightPixel != -1) {
+            if (similarityGraph.isEdge(v, topRightPixel) && !visited[topRightPixel]) {
+                DFSUtilPrint(topRightPixel, visited, componentList);
+            }
+        }
+        // Left pixel
+        if (leftPixel != -1) {
+            if (similarityGraph.isEdge(v, leftPixel) && !visited[leftPixel]) {
+                DFSUtilPrint(leftPixel, visited, componentList);
+            }
+        }
+        // Right pixel
+        if (rightPixel != -1) {
+            if (similarityGraph.isEdge(v, rightPixel) && !visited[rightPixel]) {
+                DFSUtilPrint(rightPixel, visited, componentList);
+            }
+        }
+        // Bottom-left pixel
+        if (bottomLeftPixel != -1) {
+            if (similarityGraph.isEdge(v, bottomLeftPixel) && !visited[bottomLeftPixel]) {
+                DFSUtilPrint(bottomLeftPixel, visited, componentList);
+            }
+        }
+        // Bottom pixel
+        if (bottomPixel != -1) {
+            if (similarityGraph.isEdge(v, bottomPixel) && !visited[bottomPixel]) {
+                DFSUtilPrint(bottomPixel, visited, componentList);
+            }
+        }
+        // Bottom-right pixel
+        if (bottomRightPixel != -1) {
+            if (similarityGraph.isEdge(v, bottomRightPixel) && !visited[bottomRightPixel]) {
+                DFSUtilPrint(bottomRightPixel, visited, componentList);
+            }
+        }
+    }
+
+    void printAllConnectedComponents() {
+        boolean[] visited = new boolean[numVertices];
+        ArrayList<IntList> componentLists = new ArrayList<IntList>();
+        
+        for (int v = 0; v < numVertices; v++) {
+            if(!visited[v]) {
+                componentLists.add(new IntList());
+                DFSUtilPrint(v, visited, componentLists.get(componentLists.size()-1));
+            }
+        }
+        print("Num Connected Components: " + componentLists.size() + "\n\n");
+
+        for (int i = 0; i < componentLists.size(); i++) {
+            print("Component " + (i+1) +": ");
+            for (int j = 0; j < componentLists.get(i).size(); j++) {
+                print(componentLists.get(i).get(j) + " ");
+            }
+            print("\n\n");
+        }
+    }
+
+    void DFSUtilSparsePixels(int v, int topLeftX, int topLeftY, int width, int height, boolean[] visited, IntList componentList) {
+        visited[v] = true;
+        componentList.append(v);
+
+        int topLeftPixel = -1;
+        int topPixel = -1;
+        int topRightPixel = -1;
+        int leftPixel = -1;
+        int rightPixel = -1;
+        int bottomLeftPixel = -1;
+        int bottomPixel = -1;
+        int bottomRightPixel = -1;
+
+        if (v == (topLeftX+topLeftY+(topLeftY*(imagePixels.length-1))) || v == 0) { // top left corner
+            rightPixel = v + 1;
+            bottomPixel = v + (imagePixels.length);
+            bottomRightPixel = v + (imagePixels.length) + 1;
+        }
+        else if (v == ((topLeftX+width-1)+topLeftY+(topLeftY*(imagePixels.length-1))) || v == (imagePixels.length-1)) { // top right corner
+            leftPixel = v - 1;
+            bottomPixel = v + (imagePixels.length);
+            bottomLeftPixel = v + (imagePixels.length) - 1;
+        }
+        else if (v == (topLeftX+(topLeftY+height-1)+((topLeftY+height-1)*(imagePixels.length-1))) || v == (imagePixels[0].length-1)+((imagePixels[0].length-1)*(imagePixels.length-1))) { // bottom left corner
+            topPixel = v - (imagePixels.length);
+            topRightPixel = v - (imagePixels.length) + 1;
+            rightPixel = v + 1;
+        }
+        else if (v == ((topLeftX+width-1)+(topLeftY+height-1)+((topLeftY+height-1)*(imagePixels.length-1))) || v == (imagePixels.length-1)+(imagePixels[0].length-1)+((imagePixels[0].length-1)*(imagePixels.length-1))) { // bottom right corner
+            topPixel = v - (imagePixels.length);
+            topLeftPixel = v - (imagePixels.length) - 1;
+            leftPixel = v - 1;
+        }
+        else if ((v > (topLeftX+topLeftY+(topLeftY*(imagePixels.length-1))) && v < ((topLeftX+width-1)+topLeftY+(topLeftY*(imagePixels.length-1)))) || (v > 0 && v < (imagePixels.length-1))) { // top row
+            leftPixel = v - 1;
+            bottomLeftPixel = v + (imagePixels.length) - 1;
+            bottomPixel = v + (imagePixels.length);
+            bottomRightPixel = v + (imagePixels.length) + 1;
+            rightPixel = v + 1;
+        }
+        else if ((v > (topLeftX+(topLeftY+height-1)+((topLeftY+height-1)*(imagePixels.length-1))) && v < ((topLeftX+width-1)+(topLeftY+height-1)+((topLeftY+height-1)*(imagePixels.length-1)))) || (v > (imagePixels[0].length-1)+((imagePixels[0].length-1)*(imagePixels.length-1)) && v < (imagePixels.length-1)+(imagePixels[0].length-1)+((imagePixels[0].length-1)*(imagePixels.length-1)))) { // bottom row
+            leftPixel = v - 1;
+            topLeftPixel = v - (imagePixels.length) - 1;
+            topPixel = v - (imagePixels.length);
+            topRightPixel = v - (imagePixels.length) + 1;
+            rightPixel = v + 1;
+        }
+        else if (v % (width) == 0 || v % (imagePixels.length) == 0) { // left column
+            topPixel = v - (imagePixels.length);
+            topRightPixel = v - (imagePixels.length) + 1;
+            rightPixel = v + 1;
+            bottomRightPixel = v + (imagePixels.length) + 1;
+            bottomPixel = v + (imagePixels.length);
+        }
+        else if (((v + 1) % (width)) == 0 || ((v + 1) % (imagePixels.length)) == 0) { // right column
+            topPixel = v - (imagePixels.length);
+            topLeftPixel = v - (imagePixels.length) - 1;
+            leftPixel = v - 1;
+            bottomLeftPixel = v + (imagePixels.length) - 1;
+            bottomPixel = v + (imagePixels.length);
+        }
+        else { // anywhere else
+            topLeftPixel = v - (imagePixels.length) - 1;
+            topPixel = v - (imagePixels.length);
+            topRightPixel = v - (imagePixels.length) + 1;
+            leftPixel = v - 1;
+            rightPixel = v + 1;
+            bottomLeftPixel = v + (imagePixels.length) - 1;
+            bottomPixel = v + (imagePixels.length);
+            bottomRightPixel = v + (imagePixels.length) + 1;
+        }
+
+        // Top-left pixel
+        if (topLeftPixel != -1) {
+            if (similarityGraph.isEdge(v, topLeftPixel) && !visited[topLeftPixel]) {
+                DFSUtilSparsePixels(topLeftPixel, topLeftX, topLeftY, width, height, visited, componentList);
+            }
+        }
+        // Top pixel
+        if (topPixel != -1) {
+            if (similarityGraph.isEdge(v, topPixel) && !visited[topPixel]) {
+                DFSUtilSparsePixels(topPixel, topLeftX, topLeftY, width, height, visited, componentList);
+            }
+        }
+        // Top-right pixel
+        if (topRightPixel != -1) {
+            if (similarityGraph.isEdge(v, topRightPixel) && !visited[topRightPixel]) {
+                DFSUtilSparsePixels(topRightPixel, topLeftX, topLeftY, width, height, visited, componentList);
+            }
+        }
+        // Left pixel
+        if (leftPixel != -1) {
+            if (similarityGraph.isEdge(v, leftPixel) && !visited[leftPixel]) {
+                DFSUtilSparsePixels(leftPixel, topLeftX, topLeftY, width, height, visited, componentList);
+            }
+        }
+        // Right pixel
+        if (rightPixel != -1) {
+            if (similarityGraph.isEdge(v, rightPixel) && !visited[rightPixel]) {
+                DFSUtilSparsePixels(rightPixel, topLeftX, topLeftY, width, height, visited, componentList);
+            }
+        }
+        // Bottom-left pixel
+        if (bottomLeftPixel != -1) {
+            if (similarityGraph.isEdge(v, bottomLeftPixel) && !visited[bottomLeftPixel]) {
+                DFSUtilSparsePixels(bottomLeftPixel, topLeftX, topLeftY, width, height, visited, componentList);
+            }
+        }
+        // Bottom pixel
+        if (bottomPixel != -1) {
+            if (similarityGraph.isEdge(v, bottomPixel) && !visited[bottomPixel]) {
+                DFSUtilSparsePixels(bottomPixel, topLeftX, topLeftY, width, height, visited, componentList);
+            }
+        }
+        // Bottom-right pixel
+        if (bottomRightPixel != -1) {
+            if (similarityGraph.isEdge(v, bottomRightPixel) && !visited[bottomRightPixel]) {
+                DFSUtilSparsePixels(bottomRightPixel, topLeftX, topLeftY, width, height, visited, componentList);
+            }
+        }
+    }
+
+    ArrayList<IntList> sparsePixelsComponentCount(int topLeftX, int topLeftY, int width, int height) {
+        boolean[] visited = new boolean[numVertices];
+        ArrayList<IntList> componentLists = new ArrayList<IntList>();
+        
+        IntList truncatedVertexList = new IntList();
+        for (int y = topLeftY; y < (topLeftY + height); y++) {
+            for (int x = topLeftX; x < (topLeftX + width); x++) {
+                truncatedVertexList.append((x+y+(y*(imagePixels.length-1))));
+            }
+        }
+        
+        for (int i = 0; i < truncatedVertexList.size(); i++) {
+            int v = truncatedVertexList.get(i);
+            if(!visited[v]) {
+                componentLists.add(new IntList());
+                DFSUtilSparsePixels(v, topLeftX, topLeftY, width, height, visited, componentLists.get(componentLists.size()-1));
+            }
+        }
+
+        return componentLists;
     }
 }
 
