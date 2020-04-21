@@ -29,6 +29,7 @@ final int ISLAND_WEIGHT = 5;
 
 void setup() {
 	size(1024, 1024);
+    surface.setResizable(true);
 	imageMode(CENTER);
 
     // Default Image
