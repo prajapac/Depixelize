@@ -1,3 +1,4 @@
+int w, h;
 PImage img;
 Graph similarityGraph;
 color[][] imagePixels;
@@ -33,7 +34,9 @@ final int ISLAND_WEIGHT = 5;
 ArrayList<VoronoiCell> voronoiDiagram;
 
 void setup() {
-	size(1024, 1024);
+	size(640, 640);
+    w = width;
+    h = height;
     surface.setResizable(true);
 	imageMode(CENTER);
 
@@ -42,7 +45,17 @@ void setup() {
 	loadImagePixels();
 }
 
+void checkWindowResized() {
+  if (w != width || h != height) {
+    // Sketch window has resized
+    w = width;
+    h = height;
+    currState = 0;
+  }
+}
+
 void draw() {
+    checkWindowResized();
 	background(255, 255, 255);
 	
 	switch (currState) {
@@ -1304,12 +1317,12 @@ void keyPressed() {
 		currState = 0;
 	}
 	if ( key == '2' ) {
-		img = loadImage("Images/smw_dolphin_input.png");
+		img = loadImage("Images/smb_jump_input.png");
 		loadImagePixels();
 		currState = 0;
 	}
 	if ( key == '3' ) {
-		img = loadImage("Images/invaders_03_input.png");
+		img = loadImage("Images/sma_chest_input.png");
 		loadImagePixels();
 		currState = 0;
 	}
@@ -1319,22 +1332,22 @@ void keyPressed() {
 		currState = 0;
 	}
 	if ( key == '5' ) {
-		img = loadImage("Images/win31_keyboard_input.png");
+		img = loadImage("Images/gaxe_skeleton_input.png");
 		loadImagePixels();
 		currState = 0;
 	}
 	if ( key == '6' ) {
-		img = loadImage("Images/win31_386_input.png");
+		img = loadImage("Images/smw_dolphin_input.png");
 		loadImagePixels();
 		currState = 0;
 	}
     if ( key == '7' ) {
-		img = loadImage("Images/smb_jump_input.png");
+        img = loadImage("Images/win31_386_input.png");
 		loadImagePixels();
 		currState = 0;
 	}
     if ( key == '8' ) {
-        img = loadImage("Images/gaxe_skeleton_input.png");
+        img = loadImage("Images/win31_keyboard_input.png");
 		loadImagePixels();
 		currState = 0;
 	}
