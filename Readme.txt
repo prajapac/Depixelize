@@ -20,5 +20,6 @@ Running the Program:
                 to remove.
     7) Frame 7: Similarity graph with blue crossings removed
     8) Frame 8: Similarity graph with red crossings resolved and removed
+    9) Frame 9: Dual/Voronoi Diagram generated from similarity graph which has the desired properties
 
 - Press keys 1-9 to (reset and) change the pixel art to apply the algorithm on

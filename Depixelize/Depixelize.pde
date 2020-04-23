@@ -6,6 +6,7 @@ boolean generateGraph = false;
 boolean cutOffDissimilar = false;
 boolean resolveBlueCrossings = false;
 boolean resolveRedCrossings = false;
+boolean generateVoronoiDiagram = false;
 boolean curveIsALoop = false;
 
 // Draw_State for application
@@ -17,7 +18,8 @@ final int CUT_OFF_DISSIMILAR = 4;
 final int COLOR_CODE_CROSSINGS = 5;
 final int RESOLVE_BLUE_CROSSINGS = 6;
 final int RESOLVE_RED_CROSSINGS = 7;
-final int NUM_DRAW_STATES = 8;
+final int GENERATE_VORONOI_DIAGRAM = 8;
+final int NUM_DRAW_STATES = 9;
 
 // Dissimilarity RGB Constants
 final int DIFFERENCE_Y = 48;
@@ -26,6 +28,9 @@ final int DIFFERENCE_V = 6;
 
 // Heuristic case 3 for resolving red crossings
 final int ISLAND_WEIGHT = 5;
+
+// Voronoi Diagram
+ArrayList<VoronoiCell> voronoiDiagram;
 
 void setup() {
 	size(1024, 1024);
@@ -85,6 +90,13 @@ void draw() {
                 resolveRedCrossings = false;
             }
             drawGraphColorCodedCrossings();
+            break;
+        case GENERATE_VORONOI_DIAGRAM:
+            if (generateVoronoiDiagram) {
+                generateVoronoiDiagram();
+                generateVoronoiDiagram = false;
+            }
+            drawVoronoiDiagram();
             break;
 	}
 }
@@ -627,6 +639,18 @@ void resolveRedCrossings() {
                         }                
                     }
                 }
+                // Resolve single cross edges surrounded by a box of connected edges
+                else if (similarityGraph.isEdge(x+y+(y*(imagePixels.length-1)), (x+1)+y+(y*(imagePixels.length-1))) &&
+                         similarityGraph.isEdge((x+1)+y+(y*(imagePixels.length-1)), (x+1)+(y+1)+((y+1)*(imagePixels.length-1))) &&
+                         similarityGraph.isEdge((x+1)+(y+1)+((y+1)*(imagePixels.length-1)), x+(y+1)+((y+1)*(imagePixels.length-1))) &&
+                         similarityGraph.isEdge(x+(y+1)+((y+1)*(imagePixels.length-1)), x+y+(y*(imagePixels.length-1)))) {
+                             if (similarityGraph.isEdge(x+y+(y*(imagePixels.length-1)), ((x+1)+(y+1)+((y+1)*(imagePixels.length-1))))) {
+                                 similarityGraph.removeEdge(x+y+(y*(imagePixels.length-1)), ((x+1)+(y+1)+((y+1)*(imagePixels.length-1))));
+                             }
+                             else if (similarityGraph.isEdge((x+1)+y+(y*(imagePixels.length-1)), (x+(y+1)+((y+1)*(imagePixels.length-1))))) {
+                                 similarityGraph.removeEdge((x+1)+y+(y*(imagePixels.length-1)), (x+(y+1)+((y+1)*(imagePixels.length-1))));
+                             }
+                }
             }
 		}
 	}
@@ -915,6 +939,346 @@ boolean islandCheck(int pixel1, int pixel2) {
     return islandCheck;
 }
 
+void generateVoronoiDiagram() {
+    voronoiDiagram = new ArrayList<VoronoiCell>();
+
+    stroke(0,0,0);
+    strokeWeight(3);
+
+    float lineWidth = width/(imagePixels.length * 1.0);
+	float lineHeight = height/(imagePixels[0].length * 1.0);
+    float halfLineWidth = lineWidth / 2.0;
+	float halfLineHeight = lineHeight / 2.0;
+    float quarterLineWidth = lineWidth / 4.0;
+	float quarterLineHeight = lineHeight / 4.0;
+
+    for (int y = 0; y < imagePixels[0].length; y++) {
+		for (int x = 0; x < imagePixels.length; x++) {
+            boolean checkTopLeftNode = false;
+            boolean checkTopNode = false;
+            boolean checkTopRightNode = false;
+            boolean checkRightNode = false;
+            boolean checkBottomRightNode = false;
+            boolean checkBottomNode = false;
+            boolean checkBottomLeftNode = false;
+            boolean checkLeftNode = false;
+
+            boolean edgeToTopLeftNodeExists = false;
+            boolean edgeToTopNodeExists = false;
+            boolean edgeToTopRightNodeExists = false;
+            boolean edgeToRightNodeExists = false;
+            boolean edgeToBottomRightNodeExists = false;
+            boolean edgeToBottomNodeExists = false;
+            boolean edgeToBottomLeftNodeExists = false;
+            boolean edgeToLeftNodeExists = false;
+            
+            int currPixel = (x+y+(y*(imagePixels.length-1)));
+            int topLeftPixel = ((x-1)+(y-1)+((y-1)*(imagePixels.length-1)));
+            int topPixel = (x+(y-1)+((y-1)*(imagePixels.length-1)));
+            int topRightPixel = ((x+1)+(y-1)+((y-1)*(imagePixels.length-1)));
+            int leftPixel = ((x-1)+y+(y*(imagePixels.length-1)));
+            int rightPixel = ((x+1)+y+(y*(imagePixels.length-1)));
+            int bottomLeftPixel = ((x-1)+(y+1)+((y+1)*(imagePixels.length-1)));
+            int bottomPixel = (x+(y+1)+((y+1)*(imagePixels.length-1)));
+            int bottomRightPixel = ((x+1)+(y+1)+((y+1)*(imagePixels.length-1)));
+
+            // Top-Left Corner Node
+            if (x == 0 && y == 0) {
+                checkRightNode = true;
+                checkBottomRightNode = true;
+                checkBottomNode = true;
+            }
+            // Top-Right Corner Node
+            else if (x == imagePixels.length-1 && y == 0) {
+                checkBottomNode = true;
+                checkBottomLeftNode = true;
+                checkLeftNode = true;
+            }
+            // Bottom-Left Corner Node
+            else if (x == 0 && y == imagePixels[0].length-1) {
+                checkTopNode = true;
+                checkTopRightNode = true;
+                checkRightNode = true;
+            }
+            // Bottom-Right Corner Node
+            else if (x == imagePixels.length-1 && y == imagePixels[0].length-1) {
+                checkLeftNode = true;
+                checkTopLeftNode = true;
+                checkTopNode = true;
+            }
+            // Top-Row Nodes
+            else if (x > 0 && x < imagePixels.length-1 && y == 0) {
+                checkRightNode = true;
+                checkBottomRightNode = true;
+                checkBottomNode = true;
+                checkBottomLeftNode = true;
+                checkLeftNode = true;
+            }
+            // Bottom-Row Nodes
+            else if (x > 0 && x < imagePixels.length-1 && y == imagePixels[0].length-1) {
+                checkLeftNode = true;
+                checkTopLeftNode = true;
+                checkTopNode = true;
+                checkTopRightNode = true;
+                checkRightNode = true;
+            }
+            // Left-Column Nodes
+            else if (x == 0 && y > 0 && y < imagePixels[0].length) {
+                checkTopNode = true;
+                checkTopRightNode = true;
+                checkRightNode = true;
+                checkBottomRightNode = true;
+                checkBottomNode = true;
+            }
+            // Right-Column Nodes
+            else if (x == imagePixels.length-1 && y > 0 && y < imagePixels[0].length-1) {
+                checkTopNode = true;
+                checkTopLeftNode = true;
+                checkLeftNode = true;
+                checkBottomLeftNode = true;
+                checkBottomNode = true;
+            }
+            // Every Other Node
+            else {
+                checkTopLeftNode = true;
+                checkTopNode = true;
+                checkTopRightNode = true;
+                checkRightNode = true;
+                checkBottomRightNode = true;
+                checkBottomNode = true;
+                checkBottomLeftNode = true;
+                checkLeftNode = true;
+            }
+
+            if (checkTopLeftNode) {
+                if(similarityGraph.isEdge(currPixel, topLeftPixel)) {
+                    edgeToTopLeftNodeExists = true;
+                }
+            }
+            if (checkTopNode) {
+                if(similarityGraph.isEdge(currPixel, topPixel)) {
+                    edgeToTopNodeExists = true;
+                }   
+            }
+            if (checkTopRightNode) {
+                if(similarityGraph.isEdge(currPixel, topRightPixel)) {
+                    edgeToTopRightNodeExists = true;
+                }
+            }
+            if (checkRightNode) {
+                if(similarityGraph.isEdge(currPixel, rightPixel)) {
+                    edgeToRightNodeExists = true;
+                }
+            }
+            if (checkBottomRightNode) {
+                if(similarityGraph.isEdge(currPixel, bottomRightPixel)) {
+                    edgeToBottomRightNodeExists = true;
+                }
+            }
+            if (checkBottomNode) {
+                if(similarityGraph.isEdge(currPixel, bottomPixel)) {
+                    edgeToBottomNodeExists = true;
+                }
+            }
+            if (checkBottomLeftNode) {
+                if(similarityGraph.isEdge(currPixel, bottomLeftPixel)) {
+                    edgeToBottomLeftNodeExists = true;
+                }
+            }
+            if (checkLeftNode) {
+                if(similarityGraph.isEdge(currPixel, leftPixel)) {
+                    edgeToLeftNodeExists = true;
+                }
+            }
+
+            ArrayList<Point> vertices = new ArrayList<Point>();
+
+            // Top-Left Edge and Top Edge
+            if (edgeToTopLeftNodeExists && edgeToTopNodeExists) {
+                Point bottomLeft = new Point((x*lineWidth)+(lineWidth/2)-halfLineWidth-quarterLineWidth, (y*lineHeight)+(lineHeight/2)-halfLineHeight+quarterLineHeight);
+                vertices.add(bottomLeft);
+            }
+            // Top-Left Edge and Left Edge
+            else if (edgeToTopLeftNodeExists && edgeToLeftNodeExists) {
+                Point topRight = new Point((x*lineWidth)+(lineWidth/2)-halfLineWidth+quarterLineWidth, (y*lineHeight)+(lineHeight/2)-halfLineHeight-quarterLineHeight);
+                vertices.add(topRight);    
+            }
+            // Top-Left Edge
+            else if (edgeToTopLeftNodeExists) {
+                Point bottomLeft = new Point((x*lineWidth)+(lineWidth/2)-halfLineWidth-quarterLineWidth, (y*lineHeight)+(lineHeight/2)-halfLineHeight+quarterLineHeight);
+                Point topRight = new Point((x*lineWidth)+(lineWidth/2)-halfLineWidth+quarterLineWidth, (y*lineHeight)+(lineHeight/2)-halfLineHeight-quarterLineHeight);
+                vertices.add(bottomLeft);
+                vertices.add(topRight);    
+            } else {
+                Point topLeft;
+                // Check Edge-Case:
+                if (similarityGraph.isEdge(topPixel, leftPixel) && !(similarityGraph.isEdge(currPixel, topPixel) && similarityGraph.isEdge(currPixel, leftPixel))) {
+                    topLeft = new Point((x*lineWidth)+(lineWidth/2)-quarterLineWidth, (y*lineHeight)+(lineHeight/2)-quarterLineHeight);
+                } else {
+                    topLeft = new Point((x*lineWidth)+(lineWidth/2)-halfLineWidth, (y*lineHeight)+(lineHeight/2)-halfLineHeight);
+                }
+                vertices.add(topLeft);
+            }
+
+            // Top-Right Edge and Top Edge
+            if (edgeToTopRightNodeExists && edgeToTopNodeExists) {
+                Point bottomRight = new Point((x*lineWidth)+(lineWidth/2)+halfLineWidth+quarterLineWidth, (y*lineHeight)+(lineHeight/2)-halfLineHeight+quarterLineHeight);
+                vertices.add(bottomRight); 
+            }
+            // Top-Right Edge and Right Edge
+            else if (edgeToTopRightNodeExists && edgeToRightNodeExists) {
+                Point topLeft = new Point((x*lineWidth)+(lineWidth/2)+halfLineWidth-quarterLineWidth, (y*lineHeight)+(lineHeight/2)-halfLineHeight-quarterLineHeight);
+                vertices.add(topLeft);
+            }
+            // Top-Right Edge
+            else if (edgeToTopRightNodeExists) {
+                Point topLeft = new Point((x*lineWidth)+(lineWidth/2)+halfLineWidth-quarterLineWidth, (y*lineHeight)+(lineHeight/2)-halfLineHeight-quarterLineHeight);
+                Point bottomRight = new Point((x*lineWidth)+(lineWidth/2)+halfLineWidth+quarterLineWidth, (y*lineHeight)+(lineHeight/2)-halfLineHeight+quarterLineHeight);
+                vertices.add(topLeft);
+                vertices.add(bottomRight); 
+            } else {
+                Point topRight;
+                // Check Edge-Case:
+                if (similarityGraph.isEdge(topPixel, rightPixel) && !(similarityGraph.isEdge(currPixel, topPixel) && similarityGraph.isEdge(currPixel, rightPixel))) {
+                    topRight = new Point((x*lineWidth)+(lineWidth/2)+quarterLineWidth, (y*lineHeight)+(lineHeight/2)-quarterLineHeight);
+                } else {
+                    topRight = new Point((x*lineWidth)+(lineWidth/2)+halfLineWidth, (y*lineHeight)+(lineHeight/2)-halfLineHeight);
+                }
+                vertices.add(topRight);
+            }
+
+            // Bottom-Right Edge and Bottom Edge
+            if (edgeToBottomRightNodeExists && edgeToBottomNodeExists) {
+                Point topRight = new Point((x*lineWidth)+(lineWidth/2)+halfLineWidth+quarterLineWidth, (y*lineHeight)+(lineHeight/2)+halfLineHeight-quarterLineHeight);
+                vertices.add(topRight); 
+            }
+            // Bottom-Right Edge and Right Edge
+            else if (edgeToBottomRightNodeExists && edgeToRightNodeExists) {
+                Point bottomLeft = new Point((x*lineWidth)+(lineWidth/2)+halfLineWidth-quarterLineWidth, (y*lineHeight)+(lineHeight/2)+halfLineHeight+quarterLineHeight);
+                vertices.add(bottomLeft);    
+            }
+            // Bottom-Right Edge
+            else if (edgeToBottomRightNodeExists) {
+                Point topRight = new Point((x*lineWidth)+(lineWidth/2)+halfLineWidth+quarterLineWidth, (y*lineHeight)+(lineHeight/2)+halfLineHeight-quarterLineHeight);
+                Point bottomLeft = new Point((x*lineWidth)+(lineWidth/2)+halfLineWidth-quarterLineWidth, (y*lineHeight)+(lineHeight/2)+halfLineHeight+quarterLineHeight);
+                vertices.add(topRight);
+                vertices.add(bottomLeft);    
+            } else {
+                Point bottomRight;
+                // Check Edge-Case:
+                if (similarityGraph.isEdge(bottomPixel, rightPixel) && !(similarityGraph.isEdge(currPixel, bottomPixel) && similarityGraph.isEdge(currPixel, rightPixel))) {
+                    bottomRight = new Point((x*lineWidth)+(lineWidth/2)+quarterLineWidth, (y*lineHeight)+(lineHeight/2)+quarterLineHeight);
+                } else {
+                    bottomRight = new Point((x*lineWidth)+(lineWidth/2)+halfLineWidth, (y*lineHeight)+(lineHeight/2)+halfLineHeight);
+                }
+                vertices.add(bottomRight);
+            }
+
+            // Bottom-Left Edge and Bottom Edge
+            if (edgeToBottomLeftNodeExists && edgeToBottomNodeExists) {
+                Point topLeft = new Point((x*lineWidth)+(lineWidth/2)-halfLineWidth-quarterLineWidth, (y*lineHeight)+(lineHeight/2)+halfLineHeight-quarterLineHeight);
+                vertices.add(topLeft);      
+            }
+            // Bottom-Left Edge and Left Edge
+            else if (edgeToBottomLeftNodeExists && edgeToLeftNodeExists) {
+                Point bottomRight = new Point((x*lineWidth)+(lineWidth/2)-halfLineWidth+quarterLineWidth, (y*lineHeight)+(lineHeight/2)+halfLineHeight+quarterLineHeight);
+                vertices.add(bottomRight);
+            }
+            // Bottom-Left Edge
+            else if (edgeToBottomLeftNodeExists) {
+                Point bottomRight = new Point((x*lineWidth)+(lineWidth/2)-halfLineWidth+quarterLineWidth, (y*lineHeight)+(lineHeight/2)+halfLineHeight+quarterLineHeight);
+                Point topLeft = new Point((x*lineWidth)+(lineWidth/2)-halfLineWidth-quarterLineWidth, (y*lineHeight)+(lineHeight/2)+halfLineHeight-quarterLineHeight);
+                vertices.add(bottomRight);
+                vertices.add(topLeft);      
+            } else {
+                Point bottomLeft;
+                // Check Edge-Case:
+                if (similarityGraph.isEdge(bottomPixel, leftPixel) && !(similarityGraph.isEdge(currPixel, bottomPixel) && similarityGraph.isEdge(currPixel, leftPixel))) {
+                    bottomLeft = new Point((x*lineWidth)+(lineWidth/2)-quarterLineWidth, (y*lineHeight)+(lineHeight/2)+quarterLineHeight);
+                } else {
+                    bottomLeft = new Point((x*lineWidth)+(lineWidth/2)-halfLineWidth, (y*lineHeight)+(lineHeight/2)+halfLineHeight);
+                }
+                vertices.add(bottomLeft);
+            }
+
+            // Top Edge
+            if (edgeToTopNodeExists) {
+                Point left = new Point((x*lineWidth)+(lineWidth/2)-halfLineWidth, (y*lineHeight)+(lineHeight/2)-halfLineHeight);
+                Point right = new Point((x*lineWidth)+(lineWidth/2)+halfLineWidth, (y*lineHeight)+(lineHeight/2)-halfLineHeight);
+                vertices.add(left);
+                vertices.add(right);
+            } else {
+                Point top = new Point((x*lineWidth)+(lineWidth/2), (y*lineHeight)+(lineHeight/2)-quarterLineHeight);
+                vertices.add(top);
+            }
+
+            // Right Edge
+            if (edgeToRightNodeExists) {
+                Point top = new Point((x*lineWidth)+(lineWidth/2)+halfLineWidth, (y*lineHeight)+(lineHeight/2)-halfLineHeight);
+                Point bottom = new Point((x*lineWidth)+(lineWidth/2)+halfLineWidth, (y*lineHeight)+(lineHeight/2)+halfLineHeight);
+                vertices.add(top);
+                vertices.add(bottom);   
+            } else {
+                Point right = new Point((x*lineWidth)+(lineWidth/2)+quarterLineWidth, (y*lineHeight)+(lineHeight/2));
+                vertices.add(right);
+            }
+
+            // Bottom Edge
+            if (edgeToBottomNodeExists) {
+                Point right = new Point((x*lineWidth)+(lineWidth/2)+halfLineWidth, (y*lineHeight)+(lineHeight/2)+halfLineHeight);
+                Point left = new Point((x*lineWidth)+(lineWidth/2)-halfLineWidth, (y*lineHeight)+(lineHeight/2)+halfLineHeight);
+                vertices.add(right);
+                vertices.add(left);       
+            } else {
+                Point bottom = new Point((x*lineWidth)+(lineWidth/2), (y*lineHeight)+(lineHeight/2)+quarterLineHeight);
+                vertices.add(bottom);
+            }
+
+            // Left Edge
+            if (edgeToLeftNodeExists) {
+                Point bottom = new Point((x*lineWidth)+(lineWidth/2)-halfLineWidth, (y*lineHeight)+(lineHeight/2)+halfLineHeight);
+                Point top = new Point((x*lineWidth)+(lineWidth/2)-halfLineWidth, (y*lineHeight)+(lineHeight/2)-halfLineHeight);
+                vertices.add(bottom);
+                vertices.add(top);       
+            } else {
+                Point left = new Point((x*lineWidth)+(lineWidth/2)-quarterLineWidth, (y*lineHeight)+(lineHeight/2));
+                vertices.add(left);
+            }
+            
+            // Remove duplicate vertices
+            for (int i = 0; i < vertices.size(); i++) {
+                Point currPoint = vertices.get(i);
+                for (int j = 0; j < vertices.size(); j++) {
+                    Point comparePoint = vertices.get(j);
+                    if (i != j) {
+                        if (int(currPoint.x) == int(comparePoint.x) && int(currPoint.y) == int(comparePoint.y)) {
+                            vertices.remove(j);
+                            j = 0;
+                        }
+                    }
+                }    
+            }
+
+            ArrayList<Point> convexHullVertices = convexHull(vertices);
+            voronoiDiagram.add(new VoronoiCell(imagePixels[x][y], convexHullVertices));
+		}
+	}
+}
+
+void drawVoronoiDiagram() {
+    for (int i = 0; i < voronoiDiagram.size(); i++) {
+        VoronoiCell currCell = voronoiDiagram.get(i);
+
+        fill(currCell.cellColor);
+
+        beginShape();
+        for (int j = 0; j < currCell.cellVertices.size(); j++) {
+            vertex(currCell.cellVertices.get(j).x, currCell.cellVertices.get(j).y);
+        }
+        endShape(CLOSE);
+    }
+}
+
 void keyPressed() {
 	if (key == ' ') {
 		currState = (currState + 1) % NUM_DRAW_STATES;
@@ -929,6 +1293,9 @@ void keyPressed() {
         }
         else if (currState == RESOLVE_RED_CROSSINGS) {
             resolveRedCrossings = true;
+        }
+        else if (currState == GENERATE_VORONOI_DIAGRAM) {
+            generateVoronoiDiagram = true;
         }
 	}
 	if ( key == '1' ) {
@@ -995,6 +1362,72 @@ float VfromRGB(float R, float G, float B)
   return ((0.615 * R) - (0.515 * G) - (0.100 * B));
 }
 
+// Used the following site for Convex Hull algorithm (Jarvis March):
+// https://www.geeksforgeeks.org/convex-hull-set-1-jarviss-algorithm-or-wrapping/
+
+// Finds the orientation of ordered triplet (p, q, r). 
+// return val == 0 --> p, q and r are Colinear 
+// return val == 1 --> Clockwise 
+// return val == 2 --> Counterclockwise 
+int orientation(Point p, Point q, Point r) {
+    int val = round((q.y - p.y) * (r.x - q.x) - (q.x - p.x) * (r.y - q.y)); 
+
+    // if (val == 0) -> Collinear
+    if (val > 0) {
+        val = 1; // Clockwise
+    } else if (val < 0) {
+        val = 2; // Counterclockwise 
+    }
+
+    return val;
+}
+
+ArrayList<Point> convexHull(ArrayList<Point> vertices) {
+    int numVertices = vertices.size();
+    ArrayList<Point> convexHullVertices = new ArrayList<Point>();
+
+    if (numVertices >= 3) {
+        // Find the leftmost point 
+        int leftMost = 0; 
+
+        for (int i = 1; i < numVertices; i++) {
+            if (vertices.get(i).x < vertices.get(leftMost).x) 
+                leftMost = i;
+        }
+
+        // Move counterclockwise starting from the leftmost point, until we reach the leftmost point again
+        int currPoint = leftMost, nextCounterClockwisePoint; 
+        do { 
+            // Add current point to Convex hull list
+            convexHullVertices.add(vertices.get(currPoint)); 
+
+            // Search for a point 'q' such that orientation(p, x, q) is counterclockwise for all points 'x'
+            // The idea is to keep track of the last visited 'most' counterclock-wise point, i.e. q
+            // If any point 'i' is more counterclock-wise than q, then update q
+            nextCounterClockwisePoint = (currPoint + 1) % numVertices; 
+            
+            for (int i = 0; i < numVertices; i++) 
+            {
+                if (orientation(vertices.get(currPoint), vertices.get(i), vertices.get(nextCounterClockwisePoint)) == 2) {
+                    nextCounterClockwisePoint = i; 
+                }
+            }
+            currPoint = nextCounterClockwisePoint;
+            
+        } while (currPoint != leftMost);
+    }
+
+    return convexHullVertices;
+}
+
+void printPointList(ArrayList<Point> points) {
+    print("------------------\n");
+    for (int i = 0; i < points.size(); i++) {
+        print("(" + points.get(i).x + ", " + points.get(i).y + ")\n"); 
+    }
+    print("------------------\n");
+}
+
 // Used the following site for Graph implementation:
 // https://www.programiz.com/dsa/graph-adjacency-matrix
 // And the following for graph traversal algorithm (DFS) to count connected component sizes (Heuristic 2: Sparse pixels)
@@ -1019,10 +1452,14 @@ class Graph {
     }
  
     public boolean isEdge(int i, int j) {
-        return adjacencyMatrix[i][j];
+        boolean result = false;
+        if (i >= 0 && i < numVertices && j >= 0 && j < numVertices) {
+            result = adjacencyMatrix[i][j];
+        }
+        return result;
     }
 
-    void DFSUtilPrint(int v, boolean[] visited, IntList componentList) {
+    public void DFSUtilPrint(int v, boolean[] visited, IntList componentList) {
         visited[v] = true;
         componentList.append(v);
         
@@ -1144,7 +1581,7 @@ class Graph {
         }
     }
 
-    void printAllConnectedComponents() {
+    public void printAllConnectedComponents() {
         boolean[] visited = new boolean[numVertices];
         ArrayList<IntList> componentLists = new ArrayList<IntList>();
         
@@ -1165,7 +1602,7 @@ class Graph {
         }
     }
 
-    void DFSUtilSparsePixels(int v, int topLeftX, int topLeftY, int width, int height, boolean[] visited, IntList componentList, IntList truncatedVertexList) {
+    public void DFSUtilSparsePixels(int v, int topLeftX, int topLeftY, int width, int height, boolean[] visited, IntList componentList, IntList truncatedVertexList) {
         visited[v] = true;
         componentList.append(v);
 
@@ -1287,7 +1724,7 @@ class Graph {
         }
     }
 
-    ArrayList<IntList> sparsePixelsComponentCount(int topLeftX, int topLeftY, int width, int height) {
+    public ArrayList<IntList> sparsePixelsComponentCount(int topLeftX, int topLeftY, int width, int height) {
         boolean[] visited = new boolean[numVertices];
         ArrayList<IntList> componentLists = new ArrayList<IntList>();
         
@@ -1307,6 +1744,26 @@ class Graph {
         }
 
         return componentLists;
+    }
+}
+
+class Point {
+    public float x;
+    public float y;
+
+    public Point(float initX, float initY) {
+        x = initX;
+        y = initY;
+    }
+}
+
+class VoronoiCell {
+    public color cellColor;
+    public ArrayList<Point> cellVertices;
+
+    public VoronoiCell(color initColor, ArrayList<Point> initCellVertices) {
+        cellColor = initColor;
+        cellVertices = initCellVertices;
     }
 }
 
